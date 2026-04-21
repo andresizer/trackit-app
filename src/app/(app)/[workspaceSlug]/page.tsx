@@ -9,7 +9,10 @@ import { TrendingUp, TrendingDown, Wallet, PiggyBank } from 'lucide-react'
 interface AccountBalance {
   id: string
   name: string
-  type: string
+  accountType?: {
+    name: string
+    icon: string | null
+  } | null
   icon: string | null
   color: string | null
   currentBalance: number
@@ -69,7 +72,7 @@ export default async function DashboardPage({ params }: DashboardPageProps) {
             {data.accountBalances.map((acc: AccountBalance) => (
               <div key={acc.id} className="flex items-center justify-between p-3 rounded-xl bg-muted/50">
                 <div className="flex items-center gap-2">
-                  <span>{acc.icon}</span>
+                  <span>{acc.accountType?.icon || acc.icon}</span>
                   <span className="text-sm font-medium">{acc.name}</span>
                 </div>
                 <span className={`text-sm font-semibold ${acc.currentBalance >= 0 ? 'text-green-500' : 'text-red-500'}`}>

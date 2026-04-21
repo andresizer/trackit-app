@@ -135,9 +135,16 @@ async function handleConfirmation(
   const isDeny = ['não', 'nao', 'n', 'no', 'cancelar', '❌'].includes(normalized)
 
   if (isConfirm && context.amount && context.description) {
-    // Buscar conta padrão (primeira conta corrente)
+    // Buscar conta padrão (primeira conta que tenha "Corrente" no tipo ou nome)
     const defaultAccount = await prisma.bankAccount.findFirst({
-      where: { workspaceId, type: 'CHECKING', isArchived: false },
+      where: { 
+        workspaceId, 
+        isArchived: false,
+        OR: [
+          { accountType: { name: { contains: 'Corrente', mode: 'insensitive' } } },
+          { name: { contains: 'Corrente', mode: 'insensitive' } }
+        ]
+      },
     })
 
     if (!defaultAccount) {
@@ -190,8 +197,9 @@ async function handleCheckBalance(
   let msg = '💰 *Saldos*\n\n'
   let total = 0
 
-  for (const acc of balances) {
-    msg += `${acc.icon ?? '🏦'} ${acc.name}: ${formatCurrency(acc.currentBalance)}\n`
+  for (const acc of (balances as any[])) {
+    const icon = acc.accountType?.icon || acc.icon || '🏦'
+    msg += `${icon} ${acc.name}: ${formatCurrency(acc.currentBalance)}\n`
     total += acc.currentBalance
   }
 
