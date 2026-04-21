@@ -7,6 +7,7 @@ import { prisma } from '@/lib/db/prisma'
 
 export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
+  secret: process.env.NEXTAUTH_SECRET,
 
   // Usar JWT para sessões (necessário para Credentials provider)
   session: {
