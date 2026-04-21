@@ -1,5 +1,4 @@
-// prisma/seed.ts — categorias padrão criadas ao registrar novo workspace
-import { PrismaClient, AccountType } from '@prisma/client'
+import { PrismaClient } from '@prisma/client'
 
 const prisma = new PrismaClient()
 
@@ -75,10 +74,10 @@ export const DEFAULT_CATEGORIES = [
 ]
 
 export const DEFAULT_ACCOUNTS = [
-  { name: 'Conta Corrente', type: AccountType.CHECKING, legacyCode: 'CC', color: '#185FA5' },
-  { name: 'Dinheiro', type: AccountType.CASH, legacyCode: 'DIN', color: '#3B6D11' },
-  { name: 'Cartão de Crédito', type: AccountType.CREDIT_CARD, legacyCode: 'CRE', color: '#A32D2D' },
-  { name: 'Vale Alimentação', type: AccountType.FOOD_VOUCHER, legacyCode: 'VA', color: '#E85D24' },
-  { name: 'Vale Refeição', type: AccountType.MEAL_VOUCHER, legacyCode: 'VR', color: '#854F0B' },
-  { name: 'Investimentos', type: AccountType.INVESTMENT, legacyCode: 'INV', color: '#633806' },
-]
+  { name: 'Conta Corrente', type: 'CHECKING', legacyCode: 'CC', color: '#185FA5', icon: '🏦' },
+  { name: 'Dinheiro', type: 'CASH', legacyCode: 'DIN', color: '#3B6D11', icon: '💵' },
+  { name: 'Cartão de Crédito', type: 'CREDIT_CARD', legacyCode: 'CRE', color: '#A32D2D', icon: '💳' },
+  { name: 'Vale Alimentação', type: 'FOOD_VOUCHER', legacyCode: 'VA', color: '#E85D24', icon: '🍕' },
+  { name: 'Vale Refeição', type: 'MEAL_VOUCHER', legacyCode: 'VR', color: '#854F0B', icon: '🍱' },
+  { name: 'Investimentos', type: 'INVESTMENT', legacyCode: 'INV', color: '#633806', icon: '📈' },
+]

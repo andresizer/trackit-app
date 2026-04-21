@@ -1,8 +1,8 @@
 import { prisma } from '@/lib/db/prisma'
-import { AccountType, PaymentMethodType } from '@prisma/client'
+import { PaymentMethodType } from '@prisma/client'
 
 // ============================================================
-// Categorias padrão — espelho do seed.ts
+// Categorias padrão
 // ============================================================
 const DEFAULT_CATEGORIES = [
   {
@@ -70,7 +70,7 @@ const DEFAULT_CATEGORIES = [
     ],
   },
   {
-    name: 'Vestuário', icon: '👔', color: '#14b8a6', legacyCode: 'V',
+    name: 'Vestuário', icon: '👕', color: '#14b8a6', legacyCode: 'V',
     children: [
       { name: 'Roupas', icon: '👕', legacyCode: 'V1' },
       { name: 'Calçados', icon: '👟', legacyCode: 'V2' },
@@ -121,13 +121,13 @@ const DEFAULT_CATEGORIES = [
 ]
 
 const DEFAULT_ACCOUNTS = [
-  { name: 'Conta Corrente', type: AccountType.CHECKING, legacyCode: 'CC', color: '#6366f1', icon: '🏦' },
-  { name: 'Dinheiro', type: AccountType.CASH, legacyCode: 'DIN', color: '#22c55e', icon: '💵' },
-  { name: 'Cartão de Crédito', type: AccountType.CREDIT_CARD, legacyCode: 'CRE', color: '#ef4444', icon: '💳' },
-  { name: 'Vale Alimentação', type: AccountType.FOOD_VOUCHER, legacyCode: 'VA', color: '#f59e0b', icon: '🍽️' },
-  { name: 'Vale Refeição', type: AccountType.MEAL_VOUCHER, legacyCode: 'VR', color: '#f97316', icon: '🥗' },
-  { name: 'Investimentos', type: AccountType.INVESTMENT, legacyCode: 'INV', color: '#8b5cf6', icon: '📈' },
-  { name: 'Poupança', type: AccountType.SAVINGS, legacyCode: 'POUP', color: '#14b8a6', icon: '🏦' },
+  { name: 'Conta Corrente', type: 'CHECKING', legacyCode: 'CC', color: '#6366f1', icon: '🏦' },
+  { name: 'Dinheiro', type: 'CASH', legacyCode: 'DIN', color: '#22c55e', icon: '💵' },
+  { name: 'Cartão de Crédito', type: 'CREDIT_CARD', legacyCode: 'CRE', color: '#ef4444', icon: '💳' },
+  { name: 'Vale Alimentação', type: 'FOOD_VOUCHER', legacyCode: 'VA', color: '#f59e0b', icon: '🍽️' },
+  { name: 'Vale Refeição', type: 'MEAL_VOUCHER', legacyCode: 'VR', color: '#f97316', icon: '🥗' },
+  { name: 'Investimentos', type: 'INVESTMENT', legacyCode: 'INV', color: '#8b5cf6', icon: '📈' },
+  { name: 'Poupança', type: 'SAVINGS', legacyCode: 'POUP', color: '#14b8a6', icon: '🏦' },
 ]
 
 const DEFAULT_PAYMENT_METHODS = [
@@ -143,19 +143,41 @@ const DEFAULT_PAYMENT_METHODS = [
 
 /**
  * Cria categorias, contas e formas de pagamento padrão para um workspace.
- * Chamado ao criar workspace ou no signIn callback.
  */
 export async function seedWorkspaceDefaults(workspaceId: string) {
-  // Contas padrão
+  // 1. Criar Tipos de Conta primeiro
+  const typeMap = new Map<string, string>()
+  
+  for (const accDef of DEFAULT_ACCOUNTS) {
+    const createdType = await prisma.accountType.create({
+      data: {
+        workspaceId,
+        name: accDef.name,
+        icon: accDef.icon,
+        color: accDef.color,
+      }
+    })
+    typeMap.set(accDef.type, createdType.id)
+  }
+
+  // 2. Criar Contas vinculadas aos tipos
   await Promise.all(
     DEFAULT_ACCOUNTS.map((account) =>
       prisma.bankAccount.create({
-        data: { workspaceId, ...account },
+        data: { 
+          workspaceId, 
+          name: account.name,
+          color: account.color,
+          icon: account.icon,
+          legacyCode: account.legacyCode,
+          typeId: typeMap.get(account.type)!,
+          initialBalance: 0
+        },
       })
     )
   )
 
-  // Formas de pagamento
+  // 3. Formas de pagamento
   await Promise.all(
     DEFAULT_PAYMENT_METHODS.map((pm) =>
       prisma.paymentMethod.create({
@@ -164,7 +186,7 @@ export async function seedWorkspaceDefaults(workspaceId: string) {
     )
   )
 
-  // Categorias com subcategorias
+  // 4. Categorias com subcategorias
   for (const cat of DEFAULT_CATEGORIES) {
     const parent = await prisma.category.create({
       data: {
