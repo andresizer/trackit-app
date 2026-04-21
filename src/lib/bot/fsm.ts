@@ -1,5 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
-import { BotSessionState } from '@prisma/client'
+import { BotSessionState, Prisma } from '@prisma/client'
 
 /**
  * Contexto temporário armazenado durante o fluxo do bot.
@@ -91,7 +91,7 @@ export async function transitionState(
     where: { id: sessionId },
     data: {
       state: newState,
-      context: updatedContext as Record<string, unknown>,
+      context: updatedContext as any,
     },
   })
 }
