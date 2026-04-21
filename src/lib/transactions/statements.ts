@@ -66,6 +66,7 @@ export async function getMonthlyStatement(
 
   const accounts = await prisma.bankAccount.findMany({
     where: { workspaceId, isArchived: false },
+    include: { accountType: true },
     orderBy: { name: 'asc' },
   })
 
@@ -101,7 +102,7 @@ export async function getMonthlyStatement(
       return {
         accountId: account.id,
         accountName: account.name,
-        accountType: account.type,
+        accountType: account.accountType?.name || 'Outro',
         openingBalance,
         totalIncome,
         totalExpense,
