@@ -24,7 +24,7 @@ export default function MonthlySummary({ workspaceId, year, month }: MonthlySumm
       )
       if (!res.ok) throw new Error('Erro ao carregar resumo')
       const data = await res.json()
-      setSummary(data.summary)
+      setSummary(data.data)
     } catch (err) {
       setError('Não foi possível gerar o resumo. Verifique sua chave da API Anthropic.')
     } finally {
