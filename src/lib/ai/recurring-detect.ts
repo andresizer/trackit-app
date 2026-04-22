@@ -1,4 +1,4 @@
-import { getAnthropicClient, getModel } from './client'
+import { getAIClient, getModel } from './client'
 import { prisma } from '@/lib/db/prisma'
 
 export interface RecurrenceDetection {
@@ -15,7 +15,7 @@ export interface RecurrenceDetection {
 export async function detectRecurringPatterns(
   workspaceId: string
 ): Promise<RecurrenceDetection[]> {
-  const anthropic = getAnthropicClient()
+  const groq = getAIClient()
 
   // Buscar últimas 100 transações
   const transactions = await prisma.transaction.findMany({
@@ -33,17 +33,19 @@ export async function detectRecurringPatterns(
 
   const txList = transactions
     .map(
-      (t) =>
+      (t: any) =>
         `{ id: "${t.id}", desc: "${t.description}", valor: ${t.amount}, data: "${t.date.toISOString().split('T')[0]}", categoria: "${t.category?.name ?? 'N/A'}" }`
     )
     .join('\n')
 
-  const message = await anthropic.messages.create({
+  const chatCompletion = await groq.chat.completions.create({
     model: getModel(),
-    max_tokens: 500,
-    system: `Você é um analista financeiro. Identifique padrões de transações recorrentes.
-Responda APENAS com JSON válido, sem markdown.`,
     messages: [
+      {
+        role: 'system',
+        content: `Você é um analista financeiro. Identifique padrões de transações recorrentes.
+Responda APENAS com JSON válido, sem markdown.`,
+      },
       {
         role: 'user',
         content: `Analise estas transações e identifique padrões de recorrência (mesma descrição ou similar, mesmo valor, intervalos regulares):
@@ -63,12 +65,13 @@ Responda com JSON no formato:
 Se não encontrar padrões, retorne [].`,
       },
     ],
+    temperature: 0,
   })
 
   try {
-    const content = message.content[0]
-    if (content.type !== 'text') return []
-    return JSON.parse(content.text) as RecurrenceDetection[]
+    const text = chatCompletion.choices[0]?.message?.content
+    if (!text) return []
+    return JSON.parse(text) as RecurrenceDetection[]
   } catch {
     console.error('Erro ao parsear resposta da IA para detecção de recorrência')
     return []

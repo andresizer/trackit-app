@@ -1,19 +1,19 @@
-import Anthropic from '@anthropic-ai/sdk'
+import Groq from 'groq-sdk'
 
-let client: Anthropic | null = null
+let client: Groq | null = null
 
 /**
- * Retorna singleton do client Anthropic.
+ * Retorna singleton do client Groq.
  */
-export function getAnthropicClient(): Anthropic {
+export function getAIClient(): Groq {
   if (!client) {
-    const apiKey = process.env.ANTHROPIC_API_KEY
+    const apiKey = process.env.GROQ_API_KEY
     if (!apiKey) {
       throw new Error(
-        'ANTHROPIC_API_KEY não configurada. Defina em .env.local'
+        'GROQ_API_KEY não configurada. Defina em .env.local'
       )
     }
-    client = new Anthropic({ apiKey })
+    client = new Groq({ apiKey })
   }
   return client
 }
@@ -22,5 +22,5 @@ export function getAnthropicClient(): Anthropic {
  * Modelo padrão para chamadas de IA.
  */
 export function getModel(): string {
-  return process.env.ANTHROPIC_MODEL ?? 'claude-sonnet-4-20250514'
+  return process.env.GROQ_MODEL ?? 'llama3-70b-8192'
 }

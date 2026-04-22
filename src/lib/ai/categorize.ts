@@ -1,4 +1,4 @@
-import { getAnthropicClient, getModel } from './client'
+import { getAIClient, getModel } from './client'
 import { prisma } from '@/lib/db/prisma'
 
 export interface CategorySuggestion {
@@ -19,7 +19,7 @@ export async function suggestCategory(
   workspaceId: string,
   description: string
 ): Promise<CategorySuggestion | null> {
-  const anthropic = getAnthropicClient()
+  const groq = getAIClient()
 
   // Buscar categorias do workspace
   const categories = await prisma.category.findMany({
@@ -43,30 +43,32 @@ export async function suggestCategory(
 
   // Montar lista de categorias para o prompt
   const categoryList = categories
-    .filter((c) => !c.parentId) // Apenas raízes
-    .map((c) => {
-      const subs = c.children.map((s) => `  - ${s.name} (id: ${s.id})`).join('\n')
+    .filter((c: any) => !c.parentId) // Apenas raízes
+    .map((c: any) => {
+      const subs = c.children.map((s: any) => `  - ${s.name} (id: ${s.id})`).join('\n')
       return `- ${c.name} (id: ${c.id})\n${subs}`
     })
     .join('\n')
 
   const paymentList = paymentMethods
-    .map((pm) => `- ${pm.name} (id: ${pm.id})`)
+    .map((pm: any) => `- ${pm.name} (id: ${pm.id})`)
     .join('\n')
 
   // Histórico de mapeamentos anteriores
   const historyContext = recentTransactions
-    .filter((t) => t.category)
+    .filter((t: any) => t.category)
     .slice(0, 20)
-    .map((t) => `"${t.description}" → ${t.category?.name}`)
+    .map((t: any) => `"${t.description}" → ${t.category?.name}`)
     .join('\n')
 
-  const message = await anthropic.messages.create({
+  const chatCompletion = await groq.chat.completions.create({
     model: getModel(),
-    max_tokens: 300,
-    system: `Você é um assistente de finanças pessoais. Sua tarefa é categorizar transações financeiras.
-Responda APENAS com JSON válido, sem markdown.`,
     messages: [
+      {
+        role: 'system',
+        content: `Você é um assistente de finanças pessoais. Sua tarefa é categorizar transações financeiras.
+Responda APENAS com JSON válido, sem markdown.`,
+      },
       {
         role: 'user',
         content: `Categorize esta transação:
@@ -93,13 +95,14 @@ Responda com JSON no formato:
 }`,
       },
     ],
+    temperature: 0.1, // Groq supports temperature
   })
 
   try {
-    const content = message.content[0]
-    if (content.type !== 'text') return null
+    const text = chatCompletion.choices[0]?.message?.content
+    if (!text) return null
 
-    const result = JSON.parse(content.text) as CategorySuggestion
+    const result = JSON.parse(text) as CategorySuggestion
     return result
   } catch {
     console.error('Erro ao parsear resposta da IA para categorização')
