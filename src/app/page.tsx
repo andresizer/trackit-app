@@ -20,6 +20,7 @@ export default async function HomePage() {
     redirect(`/${membership.workspace.slug}`)
   }
 
-  // Sem workspace — redirecionar para criar um
-  redirect('/login')
+  // Sem workspace — redirecionar para uma página de criação ou logout para evitar loop
+  // Por enquanto, redirecionamos para login, mas o ideal seria uma tela de boas-vindas
+  redirect('/login?error=no-workspace')
 }

@@ -1,4 +1,5 @@
 import { MemberRole } from '@prisma/client'
+import { notFound } from 'next/navigation'
 import { prisma } from '@/lib/db/prisma'
 
 // ============================================================
@@ -92,7 +93,7 @@ export async function getWorkspaceBySlug(slug: string, userId: string) {
   })
 
   if (!workspace) {
-    throw new Error('Workspace não encontrado')
+    notFound()
   }
 
   if (workspace.members.length === 0) {
