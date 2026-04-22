@@ -1,4 +1,4 @@
-import { getAnthropicClient, getModel } from './client'
+import { getAIClient, getModel } from './client'
 import { prisma } from '@/lib/db/prisma'
 import { startOfMonth, endOfMonth, subMonths } from 'date-fns'
 import { getCategoryBreakdown } from '@/lib/transactions/statements'
