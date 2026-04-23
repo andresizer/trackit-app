@@ -1,10 +1,11 @@
 import { requireSession } from '@/lib/auth/session'
 import { getWorkspaceBySlug } from '@/lib/workspace/permissions'
 import Sidebar from '@/components/layout/Sidebar'
-import { Save, Trash2, AlertTriangle } from 'lucide-react'
+import { Trash2, AlertTriangle } from 'lucide-react'
 import { prisma } from '@/lib/db/prisma'
 import AccountTypeManager from '@/components/settings/AccountTypeManager'
 import TelegramBotSetup from '@/components/settings/TelegramBotSetup'
+import WorkspaceGeneralSettings from '@/components/settings/WorkspaceGeneralSettings'
 import { seedDefaultAccountTypes } from '@/server/actions/accounts'
 import { getBotStatus } from '@/server/actions/bot'
 
@@ -48,29 +49,11 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           <div className="space-y-6">
             {/* Nome do workspace */}
-            <div className="glass-card p-6 space-y-4">
-              <h2 className="font-semibold text-sm">Geral</h2>
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">Nome do workspace</label>
-                <input
-                  type="text"
-                  defaultValue={workspace.name}
-                  className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="text-sm text-muted-foreground">Slug (URL)</label>
-                <input
-                  type="text"
-                  defaultValue={workspace.slug}
-                  disabled
-                  className="w-full px-4 py-2.5 border border-input rounded-xl bg-muted text-sm text-muted-foreground cursor-not-allowed"
-                />
-              </div>
-              <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-                <Save className="w-4 h-4" /> Salvar Alterações
-              </button>
-            </div>
+            <WorkspaceGeneralSettings
+              workspaceId={workspace.id}
+              workspaceName={workspace.name}
+              workspaceSlug={workspace.slug}
+            />
 
             {/* Zona de perigo */}
             {workspace.currentUserRole === 'OWNER' && (
