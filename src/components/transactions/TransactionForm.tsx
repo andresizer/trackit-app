@@ -3,12 +3,25 @@
 import { useState } from 'react'
 import { createTransactionAction, updateTransaction } from '@/server/actions/transactions'
 import CategoryPicker from './CategoryPicker'
-import { CalendarDays, DollarSign, FileText, CreditCard, Repeat, ArrowRightLeft } from 'lucide-react'
+import InlineAccountCreate from './InlineAccountCreate'
+import InlineCategoryCreate from './InlineCategoryCreate'
+import { CalendarDays, DollarSign, FileText, CreditCard, Repeat, ArrowRightLeft, Plus } from 'lucide-react'
+
+type AccountType = { id: string; name: string; icon: string | null }
+type Account = { id: string; name: string; icon: string | null; type: string }
+type Category = {
+  id: string
+  name: string
+  icon: string | null
+  color: string | null
+  children?: { id: string; name: string; icon: string | null }[]
+}
 
 interface TransactionFormProps {
   workspaceId: string
-  accounts: { id: string; name: string; icon: string | null; type: string }[]
-  categories: { id: string; name: string; icon: string | null; color: string | null; children?: { id: string; name: string; icon: string | null }[] }[]
+  accounts: Account[]
+  accountTypes: AccountType[]
+  categories: Category[]
   initialData?: {
     id: string
     type: 'EXPENSE' | 'INCOME' | 'TRANSFER'
@@ -22,7 +35,7 @@ interface TransactionFormProps {
   onSuccess?: () => void
 }
 
-export default function TransactionForm({ workspaceId, accounts, categories, initialData, onSuccess }: TransactionFormProps) {
+export default function TransactionForm({ workspaceId, accounts, accountTypes, categories, initialData, onSuccess }: TransactionFormProps) {
   const [type, setType] = useState<'EXPENSE' | 'INCOME' | 'TRANSFER'>(initialData?.type || 'EXPENSE')
   const [isInstallment, setIsInstallment] = useState(false)
   const [isRecurring, setIsRecurring] = useState(false)
@@ -30,8 +43,14 @@ export default function TransactionForm({ workspaceId, accounts, categories, ini
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || '')
   const [loading, setLoading] = useState(false)
 
-  const today = initialData?.date 
-    ? new Date(initialData.date).toISOString().split('T')[0] 
+  const [localAccounts, setLocalAccounts] = useState<Account[]>(accounts)
+  const [localCategories, setLocalCategories] = useState<Category[]>(categories)
+  const [showNewAccount, setShowNewAccount] = useState(false)
+  const [showNewCategory, setShowNewCategory] = useState(false)
+  const [selectedAccountId, setSelectedAccountId] = useState(initialData?.bankAccountId || '')
+
+  const today = initialData?.date
+    ? new Date(initialData.date).toISOString().split('T')[0]
     : new Date().toISOString().split('T')[0]
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -43,6 +62,7 @@ export default function TransactionForm({ workspaceId, accounts, categories, ini
     form.set('workspaceId', workspaceId)
     form.set('type', type)
     form.set('categoryId', categoryId)
+    form.set('bankAccountId', selectedAccountId)
     form.set('isInstallment', String(isInstallment))
     form.set('isRecurring', String(isRecurring))
     if (isRecurring) {
@@ -59,6 +79,7 @@ export default function TransactionForm({ workspaceId, accounts, categories, ini
       if (!initialData) {
         formElement.reset()
         setCategoryId('')
+        setSelectedAccountId('')
         setIsInstallment(false)
       }
     } catch (error) {
@@ -139,22 +160,46 @@ export default function TransactionForm({ workspaceId, accounts, categories, ini
 
       {/* Conta */}
       <div className="space-y-2">
-        <label className="text-sm font-medium flex items-center gap-2">
-          <CreditCard className="w-4 h-4 text-muted-foreground" /> Conta
-        </label>
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium flex items-center gap-2">
+            <CreditCard className="w-4 h-4 text-muted-foreground" /> Conta
+          </label>
+          {!showNewAccount && (
+            <button
+              type="button"
+              onClick={() => setShowNewAccount(true)}
+              className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Nova conta
+            </button>
+          )}
+        </div>
         <select
           name="bankAccountId"
           required
-          defaultValue={initialData?.bankAccountId || ''}
+          value={selectedAccountId}
+          onChange={(e) => setSelectedAccountId(e.target.value)}
           className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
         >
           <option value="">Selecionar conta...</option>
-          {accounts.map((acc) => (
+          {localAccounts.map((acc) => (
             <option key={acc.id} value={acc.id}>
               {acc.icon} {acc.name}
             </option>
           ))}
         </select>
+        {showNewAccount && (
+          <InlineAccountCreate
+            workspaceId={workspaceId}
+            accountTypes={accountTypes}
+            onCreated={(account) => {
+              setLocalAccounts((prev) => [...prev, { ...account, type: '' }])
+              setSelectedAccountId(account.id)
+              setShowNewAccount(false)
+            }}
+            onCancel={() => setShowNewAccount(false)}
+          />
+        )}
       </div>
 
       {/* Conta destino (transferência) */}
@@ -170,7 +215,7 @@ export default function TransactionForm({ workspaceId, accounts, categories, ini
             className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
           >
             <option value="">Selecionar conta destino...</option>
-            {accounts.map((acc) => (
+            {localAccounts.map((acc) => (
               <option key={acc.id} value={acc.id}>{acc.icon} {acc.name}</option>
             ))}
           </select>
@@ -179,12 +224,45 @@ export default function TransactionForm({ workspaceId, accounts, categories, ini
 
       {/* Categoria */}
       <div className="space-y-2">
-        <label className="text-sm font-medium">🏷️ Categoria</label>
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium">🏷️ Categoria</label>
+          {!showNewCategory && (
+            <button
+              type="button"
+              onClick={() => setShowNewCategory(true)}
+              className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" /> Nova categoria
+            </button>
+          )}
+        </div>
         <CategoryPicker
-          categories={categories}
+          categories={localCategories}
           value={categoryId}
           onChange={(id) => setCategoryId(id)}
         />
+        {showNewCategory && (
+          <InlineCategoryCreate
+            workspaceId={workspaceId}
+            categories={localCategories}
+            onCreated={(category) => {
+              if (category.parentId) {
+                setLocalCategories((prev) =>
+                  prev.map((c) =>
+                    c.id === category.parentId
+                      ? { ...c, children: [...(c.children ?? []), category] }
+                      : c
+                  )
+                )
+              } else {
+                setLocalCategories((prev) => [...prev, { ...category, children: [] }])
+              }
+              setCategoryId(category.id)
+              setShowNewCategory(false)
+            }}
+            onCancel={() => setShowNewCategory(false)}
+          />
+        )}
       </div>
 
       {/* Parcelamento (Apenas Despesas) */}

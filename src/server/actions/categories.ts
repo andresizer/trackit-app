@@ -70,7 +70,17 @@ export async function createCategory(formData: FormData) {
   }
 
   revalidatePath(`/[workspaceSlug]/categories`, 'page')
-  return { success: true }
+  return {
+    success: true,
+    category: {
+      id: category.id,
+      name: category.name,
+      icon: category.icon,
+      color: category.color,
+      parentId: category.parentId,
+      children: [] as { id: string; name: string; icon: string | null }[],
+    },
+  }
 }
 
 export async function updateCategory(formData: FormData) {

@@ -47,7 +47,7 @@ export async function createAccount(formData: FormData) {
 
   await requireWorkspaceRole(session.user.id, data.workspaceId, 'EDITOR')
 
-  await prisma.bankAccount.create({
+  const account = await prisma.bankAccount.create({
     data: {
       workspaceId: data.workspaceId,
       name: data.name,
@@ -59,7 +59,7 @@ export async function createAccount(formData: FormData) {
   })
 
   revalidatePath(`/[workspaceSlug]/accounts`, 'page')
-  return { success: true }
+  return { success: true, account: { id: account.id, name: account.name, icon: account.icon, color: account.color } }
 }
 
 export async function updateAccount(formData: FormData) {
