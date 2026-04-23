@@ -32,6 +32,19 @@ export async function createWorkspace(formData: FormData) {
     slug: formData.get('slug'),
   })
 
+  const user = await prisma.user.findUnique({
+    where: { email: session.user.email! },
+  })
+
+  if (!user) {
+    console.error('User not found in DB for email:', session.user.email)
+
+    return {
+      success: false,
+      error: 'Erro ao criar workspace. Tente novamente.',
+    }
+  }
+
   // Verificar se slug já existe
   const existing = await prisma.workspace.findUnique({
     where: { slug: data.slug },

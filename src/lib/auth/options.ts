@@ -25,23 +25,23 @@ export const authOptions: NextAuthOptions = {
     // Google OAuth
     ...(process.env.GOOGLE_CLIENT_ID
       ? [
-          GoogleProvider({
-            clientId: process.env.GOOGLE_CLIENT_ID!,
-            clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
-            allowDangerousEmailAccountLinking: true,
-          }),
-        ]
+        GoogleProvider({
+          clientId: process.env.GOOGLE_CLIENT_ID!,
+          clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+          allowDangerousEmailAccountLinking: true,
+        }),
+      ]
       : []),
 
     // GitHub OAuth
     ...(process.env.GITHUB_CLIENT_ID
       ? [
-          GitHubProvider({
-            clientId: process.env.GITHUB_CLIENT_ID!,
-            clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-            allowDangerousEmailAccountLinking: true,
-          }),
-        ]
+        GitHubProvider({
+          clientId: process.env.GITHUB_CLIENT_ID!,
+          clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+          allowDangerousEmailAccountLinking: true,
+        }),
+      ]
       : []),
 
     // Email + senha
@@ -118,34 +118,6 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role as string | undefined
       }
       return session
-    },
-
-    async signIn({ user }) {
-      // Criar workspace padrão se o usuário não tem nenhum
-      if (user.id) {
-        const membershipCount = await prisma.workspaceMember.count({
-          where: { userId: user.id },
-        })
-
-        if (membershipCount === 0) {
-          const { seedWorkspaceDefaults } = await import('@/lib/workspace/seed-defaults')
-          const workspace = await prisma.workspace.create({
-            data: {
-              name: 'Minhas Finanças',
-              slug: `financas-${user.id.slice(-6)}`,
-              members: {
-                create: {
-                  userId: user.id,
-                  role: 'OWNER',
-                  joinedAt: new Date(),
-                },
-              },
-            },
-          })
-          await seedWorkspaceDefaults(workspace.id)
-        }
-      }
-      return true
     },
   },
 }
