@@ -90,6 +90,7 @@ model User {
   // App relations
   workspaceMembers WorkspaceMember[]
   botSessions      BotSession[]
+  botLinkTokens    BotLinkToken[]
 
   @@map("users")
 }
@@ -159,6 +160,7 @@ model Workspace {
   budgets           Budget[]
   botSessions       BotSession[]
   accountTypes      AccountType[]
+  botLinkTokens     BotLinkToken[]
 
   @@map("workspaces")
 }
@@ -397,6 +399,26 @@ model Budget {
 
   @@unique([workspaceId, categoryId, month, year])
   @@map("budgets")
+}
+
+// ============================================================
+// Bot Link Token (código temporário para vincular conta)
+// ============================================================
+
+model BotLinkToken {
+  id          String   @id @default(cuid())
+  code        String   @unique
+  userId      String
+  workspaceId String
+  expiresAt   DateTime
+  used        Boolean  @default(false)
+  createdAt   DateTime @default(now())
+
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("bot_link_tokens")
 }
 
 // ============================================================

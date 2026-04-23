@@ -9,6 +9,7 @@ export type BotIntent =
   | { type: 'check_balance' }
   | { type: 'monthly_summary' }
   | { type: 'help' }
+  | { type: 'link_account'; code: string }
   | { type: 'unknown'; raw: string }
 
 /**
@@ -23,6 +24,12 @@ export type BotIntent =
  */
 export function parseMessage(text: string): BotIntent {
   const normalized = text.trim().toLowerCase()
+
+  // Comando: /vincular CODIGO
+  const linkMatch = normalized.match(/^\/vincular\s+(\d{6})$/)
+  if (linkMatch) {
+    return { type: 'link_account', code: linkMatch[1] }
+  }
 
   // Comando: saldo
   if (['saldo', 'saldos', '/saldo'].includes(normalized)) {

@@ -4,7 +4,9 @@ import Sidebar from '@/components/layout/Sidebar'
 import { Save, Trash2, AlertTriangle } from 'lucide-react'
 import { prisma } from '@/lib/db/prisma'
 import AccountTypeManager from '@/components/settings/AccountTypeManager'
+import TelegramBotSetup from '@/components/settings/TelegramBotSetup'
 import { seedDefaultAccountTypes } from '@/server/actions/accounts'
+import { getBotStatus } from '@/server/actions/bot'
 
 interface SettingsPageProps {
   params: Promise<{ workspaceSlug: string }>
@@ -29,6 +31,8 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
       orderBy: { name: 'asc' }
     })
   }
+
+  const botStatus = await getBotStatus(workspace.id, session.user.id)
 
   return (
     <div className="flex min-h-screen">
@@ -87,6 +91,12 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
 
           <div className="space-y-6">
             <AccountTypeManager workspaceId={workspace.id} initialTypes={accountTypes} />
+            <TelegramBotSetup
+              workspaceSlug={workspaceSlug}
+              initialLinked={botStatus.linked}
+              initialLinkedAt={botStatus.linkedAt}
+              botUsername={botStatus.botUsername}
+            />
           </div>
         </div>
       </main>

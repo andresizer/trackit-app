@@ -80,6 +80,17 @@ export async function setWebhook(url: string) {
 }
 
 /**
+ * Retorna informações do bot (username, nome).
+ */
+export async function getBotInfo(): Promise<{ username: string; firstName: string }> {
+  const token = getToken()
+  const response = await fetch(`${TELEGRAM_API}${token}/getMe`)
+  const data = await response.json()
+  if (!data.ok) throw new Error('Falha ao obter informações do bot')
+  return { username: data.result.username, firstName: data.result.first_name }
+}
+
+/**
  * Parseia o update recebido do Telegram.
  */
 export interface TelegramUpdate {
