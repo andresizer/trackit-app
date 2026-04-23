@@ -37,17 +37,11 @@ export default async function EditTransactionPage({ params }: EditTransactionPag
     initialBalance: Number(acc.initialBalance)
   }))
 
-  const [categories, paymentMethods] = await Promise.all([
-    prisma.category.findMany({
-      where: { workspaceId: workspace.id, parentId: null },
-      include: { children: { orderBy: { name: 'asc' } } },
-      orderBy: { name: 'asc' },
-    }),
-    prisma.paymentMethod.findMany({
-      where: { workspaceId: workspace.id, isActive: true },
-      orderBy: { name: 'asc' },
-    }),
-  ])
+  const categories = await prisma.category.findMany({
+    where: { workspaceId: workspace.id, parentId: null },
+    include: { children: { orderBy: { name: 'asc' } } },
+    orderBy: { name: 'asc' },
+  })
 
   return (
     <div className="flex min-h-screen">
@@ -63,7 +57,6 @@ export default async function EditTransactionPage({ params }: EditTransactionPag
               workspaceId={workspace.id}
               accounts={accounts as any[]}
               categories={categories as any[]}
-              paymentMethods={paymentMethods as any[]}
               initialData={transaction as any}
             />
           </div>

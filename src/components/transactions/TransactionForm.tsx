@@ -9,7 +9,6 @@ interface TransactionFormProps {
   workspaceId: string
   accounts: { id: string; name: string; icon: string | null; type: string }[]
   categories: { id: string; name: string; icon: string | null; color: string | null; children?: { id: string; name: string; icon: string | null }[] }[]
-  paymentMethods: { id: string; name: string; type: string }[]
   initialData?: {
     id: string
     type: 'EXPENSE' | 'INCOME' | 'TRANSFER'
@@ -18,13 +17,12 @@ interface TransactionFormProps {
     date: string | Date
     bankAccountId: string
     categoryId: string | null
-    paymentMethodId: string | null
     transferToAccountId: string | null
   }
   onSuccess?: () => void
 }
 
-export default function TransactionForm({ workspaceId, accounts, categories, paymentMethods, initialData, onSuccess }: TransactionFormProps) {
+export default function TransactionForm({ workspaceId, accounts, categories, initialData, onSuccess }: TransactionFormProps) {
   const [type, setType] = useState<'EXPENSE' | 'INCOME' | 'TRANSFER'>(initialData?.type || 'EXPENSE')
   const [isInstallment, setIsInstallment] = useState(false)
   const [isRecurring, setIsRecurring] = useState(false)
@@ -187,21 +185,6 @@ export default function TransactionForm({ workspaceId, accounts, categories, pay
           value={categoryId}
           onChange={(id) => setCategoryId(id)}
         />
-      </div>
-
-      {/* Forma de pagamento */}
-      <div className="space-y-2">
-        <label className="text-sm font-medium">💳 Forma de pagamento</label>
-        <select
-          name="paymentMethodId"
-          defaultValue={initialData?.paymentMethodId || ''}
-          className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-        >
-          <option value="">Selecionar...</option>
-          {paymentMethods.map((pm) => (
-            <option key={pm.id} value={pm.id}>{pm.name}</option>
-          ))}
-        </select>
       </div>
 
       {/* Parcelamento (Apenas Despesas) */}

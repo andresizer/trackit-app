@@ -1,5 +1,4 @@
 import { prisma } from '@/lib/db/prisma'
-import { PaymentMethodType } from '@prisma/client'
 
 // ============================================================
 // Categorias padrão
@@ -120,73 +119,12 @@ const DEFAULT_CATEGORIES = [
   },
 ]
 
-const DEFAULT_ACCOUNTS = [
-  { name: 'Conta Corrente', type: 'CHECKING', legacyCode: 'CC', color: '#6366f1', icon: '🏦' },
-  { name: 'Dinheiro', type: 'CASH', legacyCode: 'DIN', color: '#22c55e', icon: '💵' },
-  { name: 'Cartão de Crédito', type: 'CREDIT_CARD', legacyCode: 'CRE', color: '#ef4444', icon: '💳' },
-  { name: 'Vale Alimentação', type: 'FOOD_VOUCHER', legacyCode: 'VA', color: '#f59e0b', icon: '🍽️' },
-  { name: 'Vale Refeição', type: 'MEAL_VOUCHER', legacyCode: 'VR', color: '#f97316', icon: '🥗' },
-  { name: 'Investimentos', type: 'INVESTMENT', legacyCode: 'INV', color: '#8b5cf6', icon: '📈' },
-  { name: 'Poupança', type: 'SAVINGS', legacyCode: 'POUP', color: '#14b8a6', icon: '🏦' },
-]
-
-const DEFAULT_PAYMENT_METHODS = [
-  { name: 'Débito', type: PaymentMethodType.DEBIT },
-  { name: 'Crédito', type: PaymentMethodType.CREDIT },
-  { name: 'PIX', type: PaymentMethodType.PIX },
-  { name: 'Dinheiro', type: PaymentMethodType.CASH },
-  { name: 'Transferência', type: PaymentMethodType.TRANSFER },
-  { name: 'Boleto', type: PaymentMethodType.BOLETO },
-  { name: 'Vale Alimentação', type: PaymentMethodType.FOOD_VOUCHER },
-  { name: 'Vale Refeição', type: PaymentMethodType.MEAL_VOUCHER },
-]
-
 /**
- * Cria categorias, contas e formas de pagamento padrão para um workspace.
+ * Cria categorias padrão para um workspace.
+ * Tipos de conta são seeded separadamente pela página de configurações.
  */
 export async function seedWorkspaceDefaults(workspaceId: string) {
-  // 1. Criar Tipos de Conta primeiro
-  const typeMap = new Map<string, string>()
-  
-  for (const accDef of DEFAULT_ACCOUNTS) {
-    const createdType = await prisma.accountType.create({
-      data: {
-        workspaceId,
-        name: accDef.name,
-        icon: accDef.icon,
-        color: accDef.color,
-      }
-    })
-    typeMap.set(accDef.type, createdType.id)
-  }
-
-  // 2. Criar Contas vinculadas aos tipos
-  await Promise.all(
-    DEFAULT_ACCOUNTS.map((account) =>
-      prisma.bankAccount.create({
-        data: { 
-          workspaceId, 
-          name: account.name,
-          color: account.color,
-          icon: account.icon,
-          legacyCode: account.legacyCode,
-          typeId: typeMap.get(account.type)!,
-          initialBalance: 0
-        },
-      })
-    )
-  )
-
-  // 3. Formas de pagamento
-  await Promise.all(
-    DEFAULT_PAYMENT_METHODS.map((pm) =>
-      prisma.paymentMethod.create({
-        data: { workspaceId, ...pm },
-      })
-    )
-  )
-
-  // 4. Categorias com subcategorias
+  // Categorias com subcategorias
   for (const cat of DEFAULT_CATEGORIES) {
     const parent = await prisma.category.create({
       data: {
