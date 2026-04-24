@@ -19,6 +19,7 @@
 # misc
 .DS_Store
 *.pem
+TEST_INVITE_FLOW.md
 
 # debug
 npm-debug.log*
