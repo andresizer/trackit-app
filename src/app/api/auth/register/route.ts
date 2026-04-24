@@ -70,7 +70,6 @@ export async function POST(request: Request) {
           // Usar o primeiro workspace como workspace padrão
           if (!workspace) {
             workspace = invite.workspace
-            seedWorkspaceId = invite.workspaceId
           }
         }
 

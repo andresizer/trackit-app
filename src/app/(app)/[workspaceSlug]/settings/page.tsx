@@ -7,6 +7,7 @@ import AccountTypeManager from '@/components/settings/AccountTypeManager'
 import TelegramBotSetup from '@/components/settings/TelegramBotSetup'
 import WorkspaceGeneralSettings from '@/components/settings/WorkspaceGeneralSettings'
 import DeleteWorkspaceButton from '@/components/settings/delete-workspace-button'
+import WorkspaceDangerZone from '@/components/settings/WorkspaceDangerZone'
 import { seedDefaultAccountTypes } from '@/server/actions/accounts'
 import { getBotStatus } from '@/server/actions/bot'
 
@@ -55,6 +56,11 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
               workspaceName={workspace.name}
               workspaceSlug={workspace.slug}
             />
+
+            {/* Ações de manutenção */}
+            {(workspace.currentUserRole === 'OWNER' || workspace.currentUserRole === 'ADMIN') && (
+              <WorkspaceDangerZone workspaceId={workspace.id} userRole={workspace.currentUserRole} />
+            )}
 
             {/* Zona de perigo */}
             {workspace.currentUserRole === 'OWNER' && (

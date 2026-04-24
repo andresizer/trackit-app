@@ -208,6 +208,40 @@ export async function updateMemberRole(
   return { success: true }
 }
 
+export async function resetCategories(workspaceId: string) {
+  const session = await requireSession()
+  await requireWorkspaceRole(session.user.id, workspaceId, 'ADMIN')
+
+  await prisma.category.deleteMany({ where: { workspaceId } })
+  await seedWorkspaceDefaults(workspaceId)
+
+  const count = await prisma.category.count({ where: { workspaceId } })
+  revalidatePath(`/[workspaceSlug]/settings`, 'page')
+  return { success: true, count }
+}
+
+export async function clearCategories(workspaceId: string) {
+  const session = await requireSession()
+  await requireWorkspaceRole(session.user.id, workspaceId, 'ADMIN')
+
+  await prisma.category.deleteMany({ where: { workspaceId } })
+
+  revalidatePath(`/[workspaceSlug]/settings`, 'page')
+  return { success: true }
+}
+
+export async function clearTransactions(workspaceId: string) {
+  const session = await requireSession()
+  await requireWorkspaceRole(session.user.id, workspaceId, 'ADMIN')
+
+  const { count } = await prisma.transaction.deleteMany({ where: { workspaceId } })
+  await prisma.recurringRule.deleteMany({ where: { workspaceId } })
+  await prisma.installmentGroup.deleteMany({ where: { workspaceId } })
+
+  revalidatePath(`/[workspaceSlug]/settings`, 'page')
+  return { success: true, count }
+}
+
 /**
  * Lista workspaces do usuário.
  */
