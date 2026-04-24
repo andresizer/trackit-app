@@ -1,11 +1,12 @@
 import { requireSession } from '@/lib/auth/session'
 import { getWorkspaceBySlug } from '@/lib/workspace/permissions'
 import Sidebar from '@/components/layout/Sidebar'
-import { Trash2, AlertTriangle } from 'lucide-react'
+import { AlertTriangle } from 'lucide-react'
 import { prisma } from '@/lib/db/prisma'
 import AccountTypeManager from '@/components/settings/AccountTypeManager'
 import TelegramBotSetup from '@/components/settings/TelegramBotSetup'
 import WorkspaceGeneralSettings from '@/components/settings/WorkspaceGeneralSettings'
+import DeleteWorkspaceButton from '@/components/settings/delete-workspace-button'
 import { seedDefaultAccountTypes } from '@/server/actions/accounts'
 import { getBotStatus } from '@/server/actions/bot'
 
@@ -65,9 +66,7 @@ export default async function SettingsPage({ params }: SettingsPageProps) {
                 <p className="text-sm text-muted-foreground">
                   Excluir o workspace apagará permanentemente todas as contas, transações, categorias e dados associados.
                 </p>
-                <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-destructive text-destructive-foreground text-sm font-medium hover:bg-destructive/90 transition-colors">
-                  <Trash2 className="w-4 h-4" /> Excluir Workspace
-                </button>
+                <DeleteWorkspaceButton workspaceId={workspace.id} workspaceName={workspace.name} />
               </div>
             )}
           </div>
