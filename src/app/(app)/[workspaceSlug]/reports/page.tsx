@@ -28,7 +28,6 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
   const now = new Date()
   const month = sp.month ? Number(sp.month) : now.getMonth() + 1
   const year = sp.year ? Number(sp.year) : now.getFullYear()
-  const date = new Date(year, month - 1)
   const viewMode = sp.view || 'account'
 
   const [statement, categoryStatement, weeklyData, categories, accounts] = await Promise.all([
@@ -69,10 +68,9 @@ export default async function ReportsPage({ params, searchParams }: ReportsPageP
           <p className="text-muted-foreground text-sm mt-1">Análise detalhada do seu workspace</p>
         </div>
 
-        <ReportFilterBar 
-          currentDate={date} 
-          accounts={accounts} 
-          categories={categories} 
+        <ReportFilterBar
+          accounts={accounts}
+          categories={categories}
         />
 
         {/* Extrato mensal */}

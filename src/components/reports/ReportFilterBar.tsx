@@ -7,18 +7,22 @@ import { addMonths, subMonths, format, startOfMonth } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
 interface ReportFilterBarProps {
-  currentDate: Date
   accounts: { id: string; name: string }[]
   categories: { id: string; name: string; icon: string | null }[]
 }
 
-export default function ReportFilterBar({ currentDate, accounts, categories }: ReportFilterBarProps) {
+export default function ReportFilterBar({ accounts, categories }: ReportFilterBarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
 
   const [search, setSearch] = useState(searchParams.get('search') || '')
-  
+
+  const now = new Date()
+  const currentMonth = Number(searchParams.get('month') || now.getMonth() + 1)
+  const currentYear = Number(searchParams.get('year') || now.getFullYear())
+  const currentDate = new Date(currentYear, currentMonth - 1, 1)
+
   const viewMode = searchParams.get('view') || 'account' // account or category
   const type = searchParams.get('type') || 'EXPENSE'
   const bankAccountId = searchParams.get('bankAccountId') || ''
