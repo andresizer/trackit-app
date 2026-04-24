@@ -1,5 +1,6 @@
 'use client'
 
+import { Suspense } from 'react'
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
 import { Search, Filter } from 'lucide-react'
 import { useState } from 'react'
@@ -35,7 +36,9 @@ export default function ReportFilterBar({ accounts, categories }: ReportFilterBa
     <div className="space-y-6 mb-8">
       {/* Navegação de Mês */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/50 border border-border p-4 rounded-2xl">
-        <MonthNavigationBar />
+        <Suspense fallback={<div className="w-32 h-8" />}>
+          <MonthNavigationBar />
+        </Suspense>
 
         <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-xl">
           <button
