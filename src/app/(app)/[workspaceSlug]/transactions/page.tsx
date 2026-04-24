@@ -4,7 +4,7 @@ import { getTransactions } from '@/server/actions/transactions'
 import Sidebar from '@/components/layout/Sidebar'
 import TransactionList from '@/components/transactions/TransactionList'
 import TransactionFilterBar from '@/components/transactions/TransactionFilterBar'
-import { Plus } from 'lucide-react'
+import { Plus, Upload } from 'lucide-react'
 import Link from 'next/link'
 import { prisma } from '@/lib/db/prisma'
 
@@ -62,12 +62,20 @@ export default async function TransactionsPage({ params, searchParams }: Transac
               {result.total} {result.total === 1 ? 'transação' : 'transações'}
             </p>
           </div>
-          <Link
-            href={`/${workspaceSlug}/transactions/new`}
-            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors self-start"
-          >
-            <Plus className="w-4 h-4" /> Nova Transação
-          </Link>
+          <div className="flex items-center gap-2 self-start">
+            <Link
+              href={`/${workspaceSlug}/transactions/import`}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl border border-border text-sm font-medium hover:bg-muted transition-colors"
+            >
+              <Upload className="w-4 h-4" /> Importar
+            </Link>
+            <Link
+              href={`/${workspaceSlug}/transactions/new`}
+              className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Nova Transação
+            </Link>
+          </div>
         </div>
 
         <div className="glass-card p-6">
