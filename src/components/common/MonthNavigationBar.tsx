@@ -1,6 +1,6 @@
 'use client'
 
-import { useRouter, usePathname, useSearchParams } from 'next/navigation'
+import { useRouter, usePathname, useSearchParams, useTransition } from 'next/navigation'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { addMonths, subMonths, format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -13,6 +13,7 @@ export default function MonthNavigationBar({ className = '' }: MonthNavigationBa
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
+  const [isPending, startTransition] = useTransition()
 
   const now = new Date()
   const currentMonth = Number(searchParams.get('month') || now.getMonth() + 1)
@@ -25,7 +26,9 @@ export default function MonthNavigationBar({ className = '' }: MonthNavigationBa
       if (value) params.set(key, value)
       else params.delete(key)
     })
-    router.push(`${pathname}?${params.toString()}`)
+    startTransition(() => {
+      router.push(`${pathname}?${params.toString()}`)
+    })
   }
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -40,7 +43,8 @@ export default function MonthNavigationBar({ className = '' }: MonthNavigationBa
     <div className={`flex items-center gap-4 ${className}`}>
       <button
         onClick={() => navigateMonth('prev')}
-        className="p-2 hover:bg-muted rounded-xl transition-colors"
+        disabled={isPending}
+        className="p-2 hover:bg-muted rounded-xl transition-colors disabled:opacity-50"
       >
         <ChevronLeft className="w-5 h-5" />
       </button>
@@ -51,7 +55,8 @@ export default function MonthNavigationBar({ className = '' }: MonthNavigationBa
       </div>
       <button
         onClick={() => navigateMonth('next')}
-        className="p-2 hover:bg-muted rounded-xl transition-colors"
+        disabled={isPending}
+        className="p-2 hover:bg-muted rounded-xl transition-colors disabled:opacity-50"
       >
         <ChevronRight className="w-5 h-5" />
       </button>
