@@ -7,13 +7,11 @@ import type { ImportTransaction } from '@/server/actions/import'
 
 interface Account { id: string; name: string }
 interface Category { id: string; name: string; children?: { id: string; name: string }[] }
-interface PaymentMethod { id: string; name: string }
 
 interface ImportPreviewProps {
   parsed: ParseResult
   accounts: Account[]
   categories: Category[]
-  paymentMethods: PaymentMethod[]
   onConfirm: (transactions: ImportTransaction[]) => void
   onBack: () => void
   isSubmitting: boolean
@@ -38,7 +36,6 @@ export default function ImportPreview({
   parsed,
   accounts,
   categories,
-  paymentMethods,
   onConfirm,
   onBack,
   isSubmitting,
@@ -59,10 +56,27 @@ export default function ImportPreview({
 
   const [globalAccountId, setGlobalAccountId] = useState<string>(accounts[0]?.id ?? '')
 
-  // Per-row overrides: accountId, categoryId, paymentMethodId
+  // Per-row overrides: accountId
   const [accountOverrides, setAccountOverrides] = useState<Record<number, string>>({})
-  const [categoryOverrides, setCategoryOverrides] = useState<Record<number, string>>({})
-  const [pmOverrides, setPmOverrides] = useState<Record<number, string>>({})
+
+  // Bulk category mapping: categoryName -> categoryId
+  const [categoryMapping, setCategoryMapping] = useState<Record<string, string>>(() => {
+    const mapping: Record<string, string> = {}
+    const uniqueNames = new Set<string>()
+
+    for (const row of parsed.rows) {
+      if (row.subcategoryName) uniqueNames.add(row.subcategoryName)
+      if (row.categoryName) uniqueNames.add(row.categoryName)
+    }
+
+    // Auto-resolve on init
+    for (const name of uniqueNames) {
+      const found = allCategories.find((c) => normalize(c.name) === normalize(name))
+      if (found) mapping[name] = found.id
+    }
+
+    return mapping
+  })
 
   function resolveAccount(row: ParsedRow, i: number): string {
     if (accountOverrides[i]) return accountOverrides[i]
@@ -71,30 +85,31 @@ export default function ImportPreview({
     return match?.id ?? ''
   }
 
-  function resolveCategory(row: ParsedRow, i: number): string {
-    if (categoryOverrides[i] !== undefined) return categoryOverrides[i]
-    // Try subcategory first, then category
+  function resolveCategory(row: ParsedRow): string {
     const subName = row.subcategoryName
     const catName = row.categoryName
-    if (subName) {
-      const found = allCategories.find((c) => normalize(c.name) === normalize(subName))
-      if (found) return found.id
-    }
-    if (catName) {
-      const found = allCategories.find((c) => normalize(c.name) === normalize(catName))
-      if (found) return found.id
-    }
+
+    if (subName && categoryMapping[subName]) return categoryMapping[subName]
+    if (catName && categoryMapping[catName]) return categoryMapping[catName]
     return ''
   }
 
-  function resolvePM(row: ParsedRow, i: number): string {
-    if (pmOverrides[i] !== undefined) return pmOverrides[i]
-    if (!row.paymentMethodName) return ''
-    return matchByName(paymentMethods, row.paymentMethodName)?.id ?? ''
-  }
-
   const rows = parsed.rows
-  const preview = rows.slice(0, 20)
+
+  // Unique category names from file that need mapping
+  const uniqueCategoryNames = useMemo(() => {
+    const names = new Set<string>()
+    for (const row of rows) {
+      if (row.subcategoryName) names.add(row.subcategoryName)
+      if (row.categoryName) names.add(row.categoryName)
+    }
+    return Array.from(names).sort()
+  }, [rows])
+
+  // Which ones are not yet resolved
+  const unresolvedCategories = useMemo(() => {
+    return uniqueCategoryNames.filter((name) => !categoryMapping[name])
+  }, [uniqueCategoryNames, categoryMapping])
 
   const unresolvedAccounts = useMemo(() => {
     if (needsGlobalAccount) return []
@@ -111,14 +126,18 @@ export default function ImportPreview({
       amount: row.amount,
       type: row.type,
       bankAccountId: resolveAccount(row, i),
-      categoryId: resolveCategory(row, i) || undefined,
-      paymentMethodId: resolvePM(row, i) || undefined,
+      categoryId: resolveCategory(row) || undefined,
     }))
   }
 
   const canConfirm =
     !isSubmitting &&
+    unresolvedCategories.length === 0 &&
     (needsGlobalAccount ? !!globalAccountId : unresolvedAccounts.length === 0)
+
+  function getCategoryLabel(id: string): string {
+    return allCategories.find((c) => c.id === id)?.label ?? ''
+  }
 
   return (
     <div className="space-y-6">
@@ -194,36 +213,63 @@ export default function ImportPreview({
         </div>
       )}
 
-      {/* Preview table */}
-      <div className="glass-card overflow-hidden">
-        <div className="p-4 border-b border-border">
-          <p className="text-sm font-medium">
-            Prévia {preview.length < rows.length ? `(primeiras ${preview.length} de ${rows.length})` : ''}
-          </p>
+      {/* Unresolved categories bulk mapping */}
+      {unresolvedCategories.length > 0 && (
+        <div className="glass-card p-4 space-y-3">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-500" />
+            <p className="text-sm font-medium">Categorias não encontradas — mapeie manualmente</p>
+          </div>
+          {unresolvedCategories.map((name) => (
+            <div key={name} className="flex items-center gap-3 text-sm">
+              <span className="font-mono px-2 py-0.5 bg-muted rounded text-xs">{name}</span>
+              <span className="text-muted-foreground">→</span>
+              <select
+                value={categoryMapping[name] ?? ''}
+                onChange={(e) => {
+                  setCategoryMapping((prev) => ({
+                    ...prev,
+                    [name]: e.target.value,
+                  }))
+                }}
+                className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm flex-1 max-w-xs"
+              >
+                <option value="">Sem categoria</option>
+                {allCategories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.label}</option>
+                ))}
+              </select>
+            </div>
+          ))}
         </div>
-        <div className="overflow-x-auto">
+      )}
+
+      {/* Preview table — all rows with scroll */}
+      <div className="glass-card overflow-hidden flex flex-col">
+        <div className="p-4 border-b border-border">
+          <p className="text-sm font-medium">Prévia de todas as transações</p>
+        </div>
+        <div className="overflow-x-auto overflow-y-auto max-h-[60vh]">
           <table className="w-full text-sm">
-            <thead>
+            <thead className="sticky top-0">
               <tr className="border-b border-border bg-muted/30">
                 <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Data</th>
                 <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Descrição</th>
                 <th className="px-4 py-2.5 text-right font-medium text-muted-foreground">Valor</th>
                 <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Tipo</th>
                 <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Categoria</th>
-                <th className="px-4 py-2.5 text-left font-medium text-muted-foreground">Forma Pag.</th>
               </tr>
             </thead>
             <tbody>
-              {preview.map((row, i) => {
-                const catId = resolveCategory(row, i)
-                const pmId = resolvePM(row, i)
+              {rows.map((row, i) => {
+                const catId = resolveCategory(row)
                 return (
                   <tr key={i} className="border-b border-border/50 last:border-0 hover:bg-muted/20">
-                    <td className="px-4 py-2.5 whitespace-nowrap">
+                    <td className="px-4 py-2.5 whitespace-nowrap text-xs">
                       {row.date.toLocaleDateString('pt-BR')}
                     </td>
-                    <td className="px-4 py-2.5 max-w-[200px] truncate">{row.description}</td>
-                    <td className="px-4 py-2.5 text-right font-mono whitespace-nowrap">
+                    <td className="px-4 py-2.5 max-w-[250px] truncate text-xs">{row.description}</td>
+                    <td className="px-4 py-2.5 text-right font-mono whitespace-nowrap text-xs">
                       R$ {row.amount.toFixed(2)}
                     </td>
                     <td className="px-4 py-2.5">
@@ -235,29 +281,8 @@ export default function ImportPreview({
                         {row.type === 'INCOME' ? 'Receita' : 'Despesa'}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5">
-                      <select
-                        value={catId}
-                        onChange={(e) => setCategoryOverrides((p) => ({ ...p, [i]: e.target.value }))}
-                        className="rounded border border-border bg-background px-2 py-1 text-xs max-w-[160px]"
-                      >
-                        <option value="">Sem categoria</option>
-                        {allCategories.map((c) => (
-                          <option key={c.id} value={c.id}>{c.label}</option>
-                        ))}
-                      </select>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <select
-                        value={pmId}
-                        onChange={(e) => setPmOverrides((p) => ({ ...p, [i]: e.target.value }))}
-                        className="rounded border border-border bg-background px-2 py-1 text-xs max-w-[140px]"
-                      >
-                        <option value="">—</option>
-                        {paymentMethods.map((m) => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
-                        ))}
-                      </select>
+                    <td className="px-4 py-2.5 text-xs">
+                      {catId ? getCategoryLabel(catId) : <span className="text-muted-foreground">—</span>}
                     </td>
                   </tr>
                 )

@@ -104,7 +104,7 @@ export default function ImportUpload({ onParsed }: ImportUploadProps) {
           <FormatCard
             title="Template padrão"
             subtitle="Excel ou CSV"
-            columns={['data', 'descricao', 'valor', 'conta', 'categoria', 'subcategoria', 'forma_pagamento']}
+            columns={['data', 'descricao', 'valor', 'conta', 'categoria', 'subcategoria']}
             notes="Categoria que começa com &quot;Receita&quot; vira receita; demais viram despesa."
           />
           <FormatCard

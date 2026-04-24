@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx'
 
 export async function GET() {
-  const headers = ['data', 'descricao', 'valor', 'conta', 'categoria', 'subcategoria', 'forma_pagamento']
+  const headers = ['data', 'descricao', 'valor', 'conta', 'categoria', 'subcategoria']
 
   const exampleRows = [
     {
@@ -11,7 +11,6 @@ export async function GET() {
       conta: 'Nubank',
       categoria: 'Alimentação',
       subcategoria: 'Mercado',
-      forma_pagamento: 'Débito',
     },
     {
       data: '26/04/2026',
@@ -20,7 +19,6 @@ export async function GET() {
       conta: 'Itaú CC',
       categoria: 'Receitas',
       subcategoria: '',
-      forma_pagamento: '',
     },
     {
       data: '27/04/2026',
@@ -29,7 +27,6 @@ export async function GET() {
       conta: 'Nubank',
       categoria: 'Moradia',
       subcategoria: 'Energia',
-      forma_pagamento: 'PIX',
     },
   ]
 

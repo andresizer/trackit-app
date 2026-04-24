@@ -19,16 +19,10 @@ interface Category {
   children?: { id: string; name: string }[]
 }
 
-interface PaymentMethod {
-  id: string
-  name: string
-}
-
 interface ImportFlowProps {
   workspaceSlug: string
   accounts: Account[]
   categories: Category[]
-  paymentMethods: PaymentMethod[]
 }
 
 type Step = 'upload' | 'preview' | 'result'
@@ -37,7 +31,6 @@ export default function ImportFlow({
   workspaceSlug,
   accounts,
   categories,
-  paymentMethods,
 }: ImportFlowProps) {
   const [step, setStep] = useState<Step>('upload')
   const [parsed, setParsed] = useState<ParseResult | null>(null)
@@ -74,7 +67,6 @@ export default function ImportFlow({
           parsed={parsed}
           accounts={accounts}
           categories={categories}
-          paymentMethods={paymentMethods}
           onConfirm={handleConfirm}
           onBack={handleReset}
           isSubmitting={isSubmitting}

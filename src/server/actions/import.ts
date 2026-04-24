@@ -11,7 +11,6 @@ export interface ImportTransaction {
   type: 'INCOME' | 'EXPENSE'
   bankAccountId: string
   categoryId?: string
-  paymentMethodId?: string
 }
 
 export interface BulkImportResult {
@@ -35,7 +34,6 @@ export async function bulkImportTransactions(
     date: Date
     bankAccountId: string
     categoryId: string | null
-    paymentMethodId: string | null
   }[] = []
 
   for (let i = 0; i < transactions.length; i++) {
@@ -59,7 +57,6 @@ export async function bulkImportTransactions(
       date: new Date(t.date),
       bankAccountId: t.bankAccountId,
       categoryId: t.categoryId ?? null,
-      paymentMethodId: t.paymentMethodId ?? null,
     })
   }
 

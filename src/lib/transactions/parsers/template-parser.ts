@@ -29,7 +29,6 @@ const COLUMN_ALIASES: Record<string, string[]> = {
   conta: ['conta', 'account', 'banco', 'bank'],
   categoria: ['categoria', 'category', 'cat'],
   subcategoria: ['subcategoria', 'subcategory', 'subcat', 'sub categoria', 'sub_categoria'],
-  forma_pagamento: ['forma_pagamento', 'forma de pagamento', 'pagamento', 'payment', 'payment_method'],
 }
 
 function normalizeKey(raw: string): string {
@@ -65,7 +64,6 @@ export function parseTemplateRows(rawRows: Record<string, unknown>[]): ParseResu
     const rawConta = findColumn(row, 'conta')
     const rawCategoria = findColumn(row, 'categoria')
     const rawSubcat = findColumn(row, 'subcategoria')
-    const rawPagamento = findColumn(row, 'forma_pagamento')
 
     if (!rawDate || !rawValor || !rawConta) {
       errors.push(`Linha ${lineNum}: campos obrigatórios ausentes (data, valor, conta)`)
@@ -92,7 +90,6 @@ export function parseTemplateRows(rawRows: Record<string, unknown>[]): ParseResu
         accountName: String(rawConta).trim(),
         categoryName,
         subcategoryName,
-        paymentMethodName: rawPagamento ? String(rawPagamento).trim() : undefined,
         rawRow: row,
       })
     } catch (e) {

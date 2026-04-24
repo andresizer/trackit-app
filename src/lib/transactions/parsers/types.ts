@@ -8,7 +8,6 @@ export interface ParsedRow {
   accountName: string
   categoryName?: string
   subcategoryName?: string
-  paymentMethodName?: string
   rawRow?: Record<string, unknown>
 }
 

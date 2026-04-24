@@ -13,7 +13,7 @@ export default async function ImportPage({ params }: ImportPageProps) {
   const session = await requireSession()
   const workspace = await getWorkspaceBySlug(workspaceSlug, session.user.id)
 
-  const [accounts, categories, paymentMethods] = await Promise.all([
+  const [accounts, categories] = await Promise.all([
     prisma.bankAccount.findMany({
       where: { workspaceId: workspace.id, isArchived: false },
       select: { id: true, name: true },
@@ -22,11 +22,6 @@ export default async function ImportPage({ params }: ImportPageProps) {
     prisma.category.findMany({
       where: { workspaceId: workspace.id },
       include: { children: { select: { id: true, name: true }, orderBy: { name: 'asc' } } },
-      orderBy: { name: 'asc' },
-    }),
-    prisma.paymentMethod.findMany({
-      where: { workspaceId: workspace.id },
-      select: { id: true, name: true },
       orderBy: { name: 'asc' },
     }),
   ])
@@ -46,7 +41,6 @@ export default async function ImportPage({ params }: ImportPageProps) {
             workspaceSlug={workspaceSlug}
             accounts={accounts}
             categories={categories as any[]}
-            paymentMethods={paymentMethods}
           />
         </div>
       </main>
