@@ -2,7 +2,8 @@ import { requireSession } from '@/lib/auth/session'
 import { getWorkspaceBySlug } from '@/lib/workspace/permissions'
 import { prisma } from '@/lib/db/prisma'
 import Sidebar from '@/components/layout/Sidebar'
-import { UserPlus, Shield, Crown, Pencil, Eye, Trash2 } from 'lucide-react'
+import InviteMemberModal from '@/components/members/invite-member-modal'
+import { Shield, Crown, Pencil, Eye, Trash2 } from 'lucide-react'
 
 interface MembersPageProps {
   params: Promise<{ workspaceSlug: string }>
@@ -43,9 +44,7 @@ export default async function MembersPage({ params }: MembersPageProps) {
             <p className="text-muted-foreground text-sm mt-1">{members.length} membro(s)</p>
           </div>
           {(workspace.currentUserRole === 'OWNER' || workspace.currentUserRole === 'ADMIN') && (
-            <button className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors">
-              <UserPlus className="w-4 h-4" /> Convidar
-            </button>
+            <InviteMemberModal workspaceId={workspace.id} />
           )}
         </div>
 
