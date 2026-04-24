@@ -5,7 +5,7 @@ import { seedWorkspaceDefaults } from '@/lib/workspace/seed-defaults'
 
 export async function POST(request: Request) {
   try {
-    const { name, email, password } = await request.json()
+    const { name, email, password, inviteToken } = await request.json()
 
     if (!name || !email || !password) {
       return NextResponse.json(
@@ -36,7 +36,13 @@ export async function POST(request: Request) {
     // Hash da senha
     const hashedPassword = await hash(password, 12)
 
-    // Criar usuário e Workspace inicial em uma transação
+    // Procurar por convites pendentes para este email
+    const pendingInvites = await prisma.pendingInvite.findMany({
+      where: { email },
+      include: { workspace: true },
+    })
+
+    // Criar usuário e adicionar aos workspaces convidados (ou criar um novo) em uma transação
     const result = await prisma.$transaction(async (tx) => {
       const newUser = await tx.user.create({
         data: {
@@ -46,29 +52,60 @@ export async function POST(request: Request) {
         },
       })
 
-      // Gerar slug básico do nome ou email
-      const baseSlug = name.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'pessoal'
-      const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`
+      let workspace = null
+      let seedWorkspaceId = null
 
-      const workspace = await tx.workspace.create({
-        data: {
-          name: `Meu Workspace`,
-          slug,
-          members: {
-            create: {
+      if (pendingInvites.length > 0) {
+        // Adicionar o usuário a todos os workspaces convidados
+        for (const invite of pendingInvites) {
+          await tx.workspaceMember.create({
+            data: {
+              workspaceId: invite.workspaceId,
               userId: newUser.id,
-              role: 'OWNER',
+              role: invite.role,
               joinedAt: new Date(),
             },
-          },
-        },
-      })
+          })
 
-      return { user: newUser, workspace }
+          // Usar o primeiro workspace como workspace padrão
+          if (!workspace) {
+            workspace = invite.workspace
+            seedWorkspaceId = invite.workspaceId
+          }
+        }
+
+        // Deletar os convites pendentes
+        await tx.pendingInvite.deleteMany({
+          where: { email },
+        })
+      } else {
+        // Criar novo workspace padrão
+        const baseSlug = name.toLowerCase().replace(/[^a-z0-9]/g, '-') || 'pessoal'
+        const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`
+
+        workspace = await tx.workspace.create({
+          data: {
+            name: `Meu Workspace`,
+            slug,
+            members: {
+              create: {
+                userId: newUser.id,
+                role: 'OWNER',
+                joinedAt: new Date(),
+              },
+            },
+          },
+        })
+        seedWorkspaceId = workspace.id
+      }
+
+      return { user: newUser, workspace: workspace!, seedWorkspaceId }
     })
 
-    // Popular o workspace com categorias e contas padrão (fora da transação para não travar o DB)
-    await seedWorkspaceDefaults(result.workspace.id)
+    // Popular o workspace com categorias e contas padrão (fora da transação)
+    if (result.seedWorkspaceId) {
+      await seedWorkspaceDefaults(result.seedWorkspaceId)
+    }
 
     return NextResponse.json({
       user: {

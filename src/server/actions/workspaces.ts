@@ -117,34 +117,50 @@ export async function inviteMember(formData: FormData) {
     where: { email },
   })
 
-  if (!user) {
-    return { success: false, error: 'Usuário não encontrado. Ele precisa criar uma conta primeiro.' }
-  }
+  if (user) {
+    // Usuário já existe: verificar se já é membro
+    const existing = await prisma.workspaceMember.findUnique({
+      where: {
+        workspaceId_userId: {
+          workspaceId,
+          userId: user.id,
+        },
+      },
+    })
 
-  // Verificar se já é membro
-  const existing = await prisma.workspaceMember.findUnique({
-    where: {
-      workspaceId_userId: {
+    if (existing) {
+      return { success: false, error: 'Este usuário já é membro do workspace.' }
+    }
+
+    await prisma.workspaceMember.create({
+      data: {
         workspaceId,
         userId: user.id,
+        role,
       },
-    },
-  })
+    })
 
-  if (existing) {
-    return { success: false, error: 'Este usuário já é membro do workspace.' }
+    revalidatePath(`/[workspaceSlug]/members`, 'page')
+    return { success: true, userExists: true }
   }
 
-  await prisma.workspaceMember.create({
+  // Usuário não existe: criar PendingInvite com token
+  const expiresAt = new Date()
+  expiresAt.setDate(expiresAt.getDate() + 7)
+
+  const pendingInvite = await prisma.pendingInvite.create({
     data: {
       workspaceId,
-      userId: user.id,
+      email,
       role,
+      invitedBy: session.user.id,
+      expiresAt,
     },
   })
 
-  revalidatePath(`/[workspaceSlug]/members`, 'page')
-  return { success: true }
+  const inviteLink = `/invite/${pendingInvite.token}`
+
+  return { success: true, userExists: false, inviteLink, inviteToken: pendingInvite.token }
 }
 
 export async function removeMember(memberId: string, workspaceId: string) {

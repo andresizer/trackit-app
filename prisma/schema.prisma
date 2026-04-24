@@ -151,6 +151,7 @@ model Workspace {
   updatedAt DateTime @updatedAt
 
   members           WorkspaceMember[]
+  pendingInvites    PendingInvite[]
   bankAccounts      BankAccount[]
   paymentMethods    PaymentMethod[]
   categories        Category[]
@@ -178,6 +179,22 @@ model WorkspaceMember {
 
   @@unique([workspaceId, userId])
   @@map("workspace_members")
+}
+
+model PendingInvite {
+  id          String     @id @default(cuid())
+  token       String     @unique @default(cuid())
+  workspaceId String
+  email       String
+  role        MemberRole @default(EDITOR)
+  invitedBy   String
+  expiresAt   DateTime
+  createdAt   DateTime   @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, email])
+  @@map("pending_invites")
 }
 
 // ============================================================

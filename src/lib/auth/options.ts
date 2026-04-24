@@ -88,7 +88,7 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.userId = user.id
 
-        // Se é OAuth e o usuário não tem workspace, criar um
+        // Se é OAuth e o usuário não tem workspace, verificar convites pendentes ou criar um novo
         if (account?.provider !== 'credentials') {
           const existingMembership = await prisma.workspaceMember.findFirst({
             where: { userId: user.id },
@@ -96,28 +96,57 @@ export const authOptions: NextAuthOptions = {
 
           if (!existingMembership) {
             try {
-              const name = user.name ?? user.email ?? 'user'
-              const baseSlug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'pessoal'
-              const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`
-
-              const workspace = await prisma.workspace.create({
-                data: {
-                  name: 'Meu Workspace',
-                  slug,
-                  members: {
-                    create: {
-                      userId: user.id,
-                      role: 'OWNER',
-                      joinedAt: new Date(),
-                    },
-                  },
-                },
+              const pendingInvites = await prisma.pendingInvite.findMany({
+                where: { email: user.email! },
+                include: { workspace: true },
               })
 
-              const { seedWorkspaceDefaults } = await import('@/lib/workspace/seed-defaults')
-              await seedWorkspaceDefaults(workspace.id)
+              if (pendingInvites.length > 0) {
+                // Adicionar o usuário a todos os workspaces convidados
+                for (const invite of pendingInvites) {
+                  await prisma.workspaceMember.create({
+                    data: {
+                      workspaceId: invite.workspaceId,
+                      userId: user.id,
+                      role: invite.role,
+                      joinedAt: new Date(),
+                    },
+                  })
+                }
+
+                // Deletar os convites pendentes
+                await prisma.pendingInvite.deleteMany({
+                  where: { email: user.email! },
+                })
+
+                // Fazer seed do primeiro workspace
+                const { seedWorkspaceDefaults } = await import('@/lib/workspace/seed-defaults')
+                await seedWorkspaceDefaults(pendingInvites[0].workspaceId)
+              } else {
+                // Criar novo workspace padrão
+                const name = user.name ?? user.email ?? 'user'
+                const baseSlug = name.toLowerCase().replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '') || 'pessoal'
+                const slug = `${baseSlug}-${Math.random().toString(36).substring(2, 7)}`
+
+                const workspace = await prisma.workspace.create({
+                  data: {
+                    name: 'Meu Workspace',
+                    slug,
+                    members: {
+                      create: {
+                        userId: user.id,
+                        role: 'OWNER',
+                        joinedAt: new Date(),
+                      },
+                    },
+                  },
+                })
+
+                const { seedWorkspaceDefaults } = await import('@/lib/workspace/seed-defaults')
+                await seedWorkspaceDefaults(workspace.id)
+              }
             } catch (error) {
-              console.error('Erro ao criar workspace para novo usuário OAuth:', error)
+              console.error('Erro ao criar/vincular workspace para novo usuário OAuth:', error)
             }
           }
         }
