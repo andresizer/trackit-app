@@ -22,7 +22,6 @@ export default async function AnalyticsPage({ params, searchParams }: AnalyticsP
   const now = new Date()
   const month = sp.month ? Number(sp.month) : now.getMonth() + 1
   const year = sp.year ? Number(sp.year) : now.getFullYear()
-  const date = new Date(year, month - 1)
 
   const [categoryData, budgetData, insights, patrimonyData] = await Promise.all([
     getCategoryReport(workspace.id, year, month),
@@ -40,7 +39,7 @@ export default async function AnalyticsPage({ params, searchParams }: AnalyticsP
           <p className="text-muted-foreground text-sm mt-1">Inteligência e previsões para suas finanças</p>
         </div>
 
-        <AnalyticsFilterBar currentDate={date} />
+        <AnalyticsFilterBar />
 
         <SummaryCards data={insights} />
 

@@ -1,10 +1,9 @@
 'use client'
 
 import { useRouter, usePathname, useSearchParams } from 'next/navigation'
-import { ChevronLeft, ChevronRight, Calendar, Search, Filter } from 'lucide-react'
+import { Search, Filter } from 'lucide-react'
 import { useState } from 'react'
-import { addMonths, subMonths, format, startOfMonth } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import MonthNavigationBar from '@/components/common/MonthNavigationBar'
 
 interface ReportFilterBarProps {
   accounts: { id: string; name: string }[]
@@ -18,12 +17,7 @@ export default function ReportFilterBar({ accounts, categories }: ReportFilterBa
 
   const [search, setSearch] = useState(searchParams.get('search') || '')
 
-  const now = new Date()
-  const currentMonth = Number(searchParams.get('month') || now.getMonth() + 1)
-  const currentYear = Number(searchParams.get('year') || now.getFullYear())
-  const currentDate = new Date(currentYear, currentMonth - 1, 1)
-
-  const viewMode = searchParams.get('view') || 'account' // account or category
+  const viewMode = searchParams.get('view') || 'account'
   const type = searchParams.get('type') || 'EXPENSE'
   const bankAccountId = searchParams.get('bankAccountId') || ''
   const categoryId = searchParams.get('categoryId') || ''
@@ -37,37 +31,11 @@ export default function ReportFilterBar({ accounts, categories }: ReportFilterBa
     router.push(`${pathname}?${params.toString()}`)
   }
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const nextDate = direction === 'next' ? addMonths(currentDate, 1) : subMonths(currentDate, 1)
-    updateFilters({
-      month: String(nextDate.getMonth() + 1),
-      year: String(nextDate.getFullYear())
-    })
-  }
-
   return (
     <div className="space-y-6 mb-8">
       {/* Navegação de Mês */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-card/50 border border-border p-4 rounded-2xl">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigateMonth('prev')}
-            className="p-2 hover:bg-muted rounded-xl transition-colors"
-          >
-            <ChevronLeft className="w-5 h-5" />
-          </button>
-          <div className="text-center min-w-[150px]">
-            <p className="text-sm font-semibold capitalize">
-              {format(currentDate, 'MMMM yyyy', { locale: ptBR })}
-            </p>
-          </div>
-          <button
-            onClick={() => navigateMonth('next')}
-            className="p-2 hover:bg-muted rounded-xl transition-colors"
-          >
-            <ChevronRight className="w-5 h-5" />
-          </button>
-        </div>
+        <MonthNavigationBar />
 
         <div className="flex items-center gap-2 bg-muted/50 p-1 rounded-xl">
           <button
