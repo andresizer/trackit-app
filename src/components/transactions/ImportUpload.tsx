@@ -122,8 +122,8 @@ export default function ImportUpload({ onParsed }: ImportUploadProps) {
         </div>
 
         <a
-          href="/template-importacao.xlsx"
-          download
+          href="/api/import/template"
+          download="template-importacao.xlsx"
           className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
           onClick={(e) => e.stopPropagation()}
         >
