@@ -57,7 +57,7 @@ export async function createTransactionAction(formData: FormData) {
       ? Number(formData.get('totalInstallments'))
       : undefined,
     isRecurring: formData.get('isRecurring') === 'true',
-    frequency: formData.get('frequency') as string | undefined,
+    frequency: (formData.get('frequency') as string) || undefined,
   }
 
   const data = createTransactionSchema.parse(raw)
