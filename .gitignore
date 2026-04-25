@@ -49,3 +49,6 @@ node_modules
 *.swp
 *.swo
 *~
+
+#claude
+.claude/

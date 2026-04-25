@@ -42,6 +42,7 @@ export default function TransactionForm({ workspaceId, accounts, accountTypes, c
   const [frequency, setFrequency] = useState('MONTHLY')
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || '')
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const [localAccounts, setLocalAccounts] = useState<Account[]>(accounts)
   const [localCategories, setLocalCategories] = useState<Category[]>(categories)
@@ -56,6 +57,7 @@ export default function TransactionForm({ workspaceId, accounts, accountTypes, c
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault()
     setLoading(true)
+    setError(null)
 
     const formElement = e.currentTarget
     const form = new FormData(formElement)
@@ -83,7 +85,8 @@ export default function TransactionForm({ workspaceId, accounts, accountTypes, c
         setIsInstallment(false)
       }
     } catch (error) {
-      console.error('Erro ao salvar transação:', error)
+      const message = error instanceof Error ? error.message : 'Erro ao salvar transação'
+      setError(message)
     } finally {
       setLoading(false)
     }
@@ -331,6 +334,13 @@ export default function TransactionForm({ workspaceId, accounts, accountTypes, c
               </select>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Erro */}
+      {error && (
+        <div className="p-3 rounded-xl bg-destructive/10 text-destructive text-sm">
+          {error}
         </div>
       )}
 
