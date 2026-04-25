@@ -31,7 +31,6 @@ const createTransactionSchema = z.object({
   totalInstallments: z.number().int().min(2).optional(),
   // Recorrência
   isRecurring: z.boolean().optional(),
-  frequency: z.string().optional(),
 })
 
 // ============================================================
@@ -57,7 +56,6 @@ export async function createTransactionAction(formData: FormData) {
       ? Number(formData.get('totalInstallments'))
       : undefined,
     isRecurring: formData.get('isRecurring') === 'true',
-    frequency: (formData.get('frequency') as string) || undefined,
   }
 
   const data = createTransactionSchema.parse(raw)
@@ -108,12 +106,11 @@ export async function createTransactionAction(formData: FormData) {
   })
 
   // Se for recorrente, criar a regra e vincular
-  if (data.isRecurring && data.frequency) {
+  if (data.isRecurring) {
     const { createRecurringRule, generateRecurringTransactions } = await import('@/lib/transactions/recurrence')
-    
+
     const rule = await createRecurringRule(
       data.workspaceId,
-      data.frequency as any,
       data.date,
       {
         type: data.type,

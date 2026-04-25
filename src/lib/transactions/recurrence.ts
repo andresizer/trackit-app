@@ -1,42 +1,12 @@
 import { prisma } from '@/lib/db/prisma'
-import { RecurrenceFrequency } from '@prisma/client'
-import {
-  addDays,
-  addWeeks,
-  addMonths,
-  addYears,
-  isBefore,
-  startOfDay,
-} from 'date-fns'
+import { addMonths, isBefore, startOfDay } from 'date-fns'
 
-/**
- * Calcula a próxima data com base na frequência.
- */
-function getNextDate(date: Date, frequency: RecurrenceFrequency): Date {
-  switch (frequency) {
-    case 'DAILY':
-      return addDays(date, 1)
-    case 'WEEKLY':
-      return addWeeks(date, 1)
-    case 'BIWEEKLY':
-      return addWeeks(date, 2)
-    case 'MONTHLY':
-      return addMonths(date, 1)
-    case 'BIMONTHLY':
-      return addMonths(date, 2)
-    case 'QUARTERLY':
-      return addMonths(date, 3)
-    case 'YEARLY':
-      return addYears(date, 1)
-  }
+function getNextDate(date: Date): Date {
+  return addMonths(date, 1)
 }
 
-/**
- * Cria uma regra de recorrência.
- */
 export async function createRecurringRule(
   workspaceId: string,
-  frequency: RecurrenceFrequency,
   startDate: Date,
   template: {
     type: any
@@ -51,11 +21,10 @@ export async function createRecurringRule(
   return prisma.recurringRule.create({
     data: {
       workspaceId,
-      frequency,
+      frequency: 'MONTHLY',
       startDate,
       endDate,
       isActive: true,
-      // Template
       type: template.type,
       amount: template.amount,
       description: template.description,
@@ -106,9 +75,9 @@ export async function generateRecurringTransactions(workspaceId?: string) {
     if (!lastTransaction && !rule.amount) continue // Se não tem template nem última transação, pula
 
     // Calcular próxima data a partir da última ou da startDate
-    let nextDate = lastTransaction 
-      ? getNextDate(lastTransaction.date, rule.frequency)
-      : getNextDate(rule.startDate, rule.frequency)
+    let nextDate = lastTransaction
+      ? getNextDate(lastTransaction.date)
+      : getNextDate(rule.startDate)
 
     // Gerar transações até a data atual
     while (isBefore(nextDate, now) || nextDate.getTime() === now.getTime()) {
@@ -148,7 +117,7 @@ export async function generateRecurringTransactions(workspaceId?: string) {
         }
       }
 
-      nextDate = getNextDate(nextDate, rule.frequency)
+      nextDate = getNextDate(nextDate)
 
       // Safety: limite de 12 transações por regra por execução
       if (created.filter((id) => id === rule.id).length >= 12) break

@@ -3,7 +3,6 @@ import { prisma } from '@/lib/db/prisma'
 
 export interface RecurrenceDetection {
   description: string
-  suggestedFrequency: string
   confidence: number
   matchingTransactionIds: string[]
 }
@@ -48,7 +47,7 @@ Responda APENAS com JSON válido, sem markdown.`,
       },
       {
         role: 'user',
-        content: `Analise estas transações e identifique padrões de recorrência (mesma descrição ou similar, mesmo valor, intervalos regulares):
+        content: `Analise estas transações e identifique padrões de recorrência mensal (mesma descrição ou similar, mesmo valor, intervalos regulares):
 
 ${txList}
 
@@ -56,7 +55,6 @@ Responda com JSON no formato:
 [
   {
     "description": "descrição do padrão",
-    "suggestedFrequency": "DAILY|WEEKLY|BIWEEKLY|MONTHLY|BIMONTHLY|QUARTERLY|YEARLY",
     "confidence": 0.0 a 1.0,
     "matchingTransactionIds": ["id1", "id2", ...]
   }

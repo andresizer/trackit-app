@@ -31,20 +31,11 @@ type GroupBy = 'none' | 'type' | 'category'
 export default function RecurrenceList({ rules, workspaceId }: RecurrenceListProps) {
   const [loadingId, setLoadingId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
-  const [editData, setEditData] = useState<{ amount: string; frequency: string; description: string }>({ amount: '', frequency: '', description: '' })
+  const [editData, setEditData] = useState<{ amount: string; description: string }>({ amount: '', description: '' })
   const [groupBy, setGroupBy] = useState<GroupBy>('none')
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
-  const frequencyLabels: Record<string, string> = {
-    DAILY: 'Diário',
-    WEEKLY: 'Semanal',
-    BIWEEKLY: 'Quinzenal',
-    MONTHLY: 'Mensal',
-    BIMONTHLY: 'Bimestral',
-    QUARTERLY: 'Trimestral',
-    YEARLY: 'Anual',
-  }
 
   const fmt = (v: number | string) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v))
@@ -79,7 +70,6 @@ export default function RecurrenceList({ rules, workspaceId }: RecurrenceListPro
     setEditingId(rule.id)
     setEditData({
       amount: String(rule.amount || lastTx?.amount || ''),
-      frequency: rule.frequency,
       description: rule.description || lastTx?.description || '',
     })
   }
@@ -90,7 +80,6 @@ export default function RecurrenceList({ rules, workspaceId }: RecurrenceListPro
       try {
         await updateRecurrenceAction(workspaceId, id, {
           amount: Number(editData.amount),
-          frequency: editData.frequency,
           description: editData.description,
         })
         setEditingId(null)
@@ -189,24 +178,13 @@ export default function RecurrenceList({ rules, workspaceId }: RecurrenceListPro
                             className="w-full px-3 py-1.5 text-sm border rounded-lg bg-background outline-none focus:ring-2 focus:ring-primary/20"
                             placeholder="Descrição"
                           />
-                          <div className="flex gap-2">
-                            <input
-                              type="number"
-                              value={editData.amount}
-                              onChange={e => setEditData({ ...editData, amount: e.target.value })}
-                              className="w-24 px-3 py-1.5 text-sm border rounded-lg bg-background outline-none focus:ring-2 focus:ring-primary/20"
-                              placeholder="Valor"
-                            />
-                            <select
-                              value={editData.frequency}
-                              onChange={e => setEditData({ ...editData, frequency: e.target.value })}
-                              className="flex-1 px-3 py-1.5 text-sm border rounded-lg bg-background outline-none focus:ring-2 focus:ring-primary/20"
-                            >
-                              {Object.entries(frequencyLabels).map(([val, label]) => (
-                                <option key={val} value={val}>{label}</option>
-                              ))}
-                            </select>
-                          </div>
+                          <input
+                            type="number"
+                            value={editData.amount}
+                            onChange={e => setEditData({ ...editData, amount: e.target.value })}
+                            className="w-32 px-3 py-1.5 text-sm border rounded-lg bg-background outline-none focus:ring-2 focus:ring-primary/20"
+                            placeholder="Valor"
+                          />
                         </div>
                       ) : (
                         <>
@@ -214,9 +192,7 @@ export default function RecurrenceList({ rules, workspaceId }: RecurrenceListPro
                             {rule.description || lastTx?.description || 'Recorrência'}
                           </p>
                           <div className="flex items-center gap-2 mt-0.5">
-                            <span className="text-xs text-muted-foreground">
-                              {frequencyLabels[rule.frequency] ?? rule.frequency}
-                            </span>
+                            <span className="text-xs text-muted-foreground">Mensal</span>
                             {lastTx?.category && (
                               <span className="text-xs text-muted-foreground">
                                 · {lastTx.category.icon} {lastTx.category.name}

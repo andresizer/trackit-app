@@ -38,7 +38,6 @@ export async function updateRecurrenceAction(
   workspaceId: string,
   ruleId: string,
   data: {
-    frequency?: string
     amount?: number
     description?: string
   }
@@ -49,10 +48,9 @@ export async function updateRecurrenceAction(
   await prisma.recurringRule.update({
     where: { id: ruleId },
     data: {
-      frequency: data.frequency as any,
       amount: data.amount,
       description: data.description,
-    } as any,
+    },
   })
 
   revalidatePath(`/[workspaceSlug]/recurring`, 'page')

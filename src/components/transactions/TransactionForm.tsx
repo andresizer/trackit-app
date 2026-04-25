@@ -39,7 +39,6 @@ export default function TransactionForm({ workspaceId, accounts, accountTypes, c
   const [type, setType] = useState<'EXPENSE' | 'INCOME' | 'TRANSFER'>(initialData?.type || 'EXPENSE')
   const [isInstallment, setIsInstallment] = useState(false)
   const [isRecurring, setIsRecurring] = useState(false)
-  const [frequency, setFrequency] = useState('MONTHLY')
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || '')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -67,9 +66,6 @@ export default function TransactionForm({ workspaceId, accounts, accountTypes, c
     form.set('bankAccountId', selectedAccountId)
     form.set('isInstallment', String(isInstallment))
     form.set('isRecurring', String(isRecurring))
-    if (isRecurring) {
-      form.set('frequency', frequency)
-    }
 
     try {
       if (initialData) {
@@ -317,22 +313,7 @@ export default function TransactionForm({ workspaceId, accounts, accountTypes, c
           </label>
 
           {isRecurring && (
-            <div className="space-y-2 pl-6">
-              <label className="text-xs text-muted-foreground">Frequência</label>
-              <select
-                value={frequency}
-                onChange={(e) => setFrequency(e.target.value)}
-                className="w-full px-4 py-2 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-              >
-                <option value="DAILY">Diário</option>
-                <option value="WEEKLY">Semanal</option>
-                <option value="BIWEEKLY">Quinzenal</option>
-                <option value="MONTHLY">Mensal</option>
-                <option value="BIMONTHLY">Bimestral</option>
-                <option value="QUARTERLY">Trimestral</option>
-                <option value="YEARLY">Anual</option>
-              </select>
-            </div>
+            <p className="text-xs text-muted-foreground pl-6">Frequência: Mensal</p>
           )}
         </div>
       )}
