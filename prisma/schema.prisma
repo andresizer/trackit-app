@@ -51,7 +51,13 @@ enum MemberRole {
 }
 
 enum RecurrenceFrequency {
+  DAILY
+  WEEKLY
+  BIWEEKLY
   MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  YEARLY
 }
 
 enum BotSessionState {
