@@ -11,17 +11,17 @@ import { getInvoicePeriod } from '@/lib/creditcard/billing-cycle'
 import { autoPayDueInvoices } from '@/server/actions/creditcard'
 
 interface AccountDetailPageProps {
-  params: Promise<{ workspaceSlug: string; accountId: string }>
+  params: Promise<{ workspaceSlug: string; id: string }>
 }
 
 export default async function AccountDetailPage({ params }: AccountDetailPageProps) {
-  const { workspaceSlug, accountId } = await params
+  const { workspaceSlug, id } = await params
   const session = await requireSession()
   const workspace = await getWorkspaceBySlug(workspaceSlug, session.user.id)
 
   // Load account
   const account = await prisma.bankAccount.findUnique({
-    where: { id: accountId },
+    where: { id: id },
     include: { accountType: true, linkedCheckingAccount: true },
   })
 
