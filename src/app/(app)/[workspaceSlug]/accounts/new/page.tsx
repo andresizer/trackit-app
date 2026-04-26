@@ -13,10 +13,19 @@ export default async function NewAccountPage({ params }: NewAccountPageProps) {
   const session = await requireSession()
   const workspace = await getWorkspaceBySlug(workspaceSlug, session.user.id)
 
-  const accountTypes = await prisma.accountType.findMany({
-    where: { workspaceId: workspace.id },
-    orderBy: { name: 'asc' }
-  })
+  const [accountTypes, creditCardType, checkingAccounts] = await Promise.all([
+    prisma.accountType.findMany({
+      where: { workspaceId: workspace.id },
+      orderBy: { name: 'asc' }
+    }),
+    prisma.accountType.findFirst({
+      where: { workspaceId: workspace.id, name: 'Cartão de Crédito' }
+    }),
+    prisma.bankAccount.findMany({
+      where: { workspaceId: workspace.id, isArchived: false },
+      select: { id: true, name: true }
+    })
+  ])
 
   return (
     <div className="flex min-h-screen">
@@ -28,10 +37,12 @@ export default async function NewAccountPage({ params }: NewAccountPageProps) {
             <p className="text-muted-foreground text-sm mt-1">Crie uma nova conta para seu workspace</p>
           </div>
           <div className="glass-card p-6">
-            <AccountForm 
-              workspaceId={workspace.id} 
-              workspaceSlug={workspaceSlug} 
+            <AccountForm
+              workspaceId={workspace.id}
+              workspaceSlug={workspaceSlug}
               accountTypes={accountTypes}
+              creditCardTypeId={creditCardType?.id}
+              checkingAccounts={checkingAccounts}
             />
           </div>
         </div>

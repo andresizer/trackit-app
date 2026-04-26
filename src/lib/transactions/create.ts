@@ -117,34 +117,57 @@ export async function createInvoicePayment(
   creditCardAccountId: string,
   amount: number,
   date: Date,
-  paymentMethodId?: string
+  paymentMethodId?: string,
+  invoiceId?: string
 ) {
-  // Despesa na conta corrente
-  const debit = await prisma.transaction.create({
-    data: {
-      workspaceId,
-      type: 'EXPENSE',
-      amount,
-      description: 'Pagamento de fatura do cartão',
-      date,
-      bankAccountId: fromAccountId,
-      paymentMethodId,
-      specialType: 'INVOICE_PAYMENT',
-    },
-  })
+  const [debit, credit] = await prisma.$transaction([
+    // Despesa na conta corrente
+    prisma.transaction.create({
+      data: {
+        workspaceId,
+        type: 'EXPENSE',
+        amount,
+        description: 'Pagamento de fatura do cartão',
+        date,
+        bankAccountId: fromAccountId,
+        paymentMethodId,
+        specialType: 'INVOICE_PAYMENT',
+      },
+    }),
+    // Receita no cartão de crédito (reduz saldo devedor)
+    prisma.transaction.create({
+      data: {
+        workspaceId,
+        type: 'INCOME',
+        amount,
+        description: 'Pagamento de fatura recebido',
+        date,
+        bankAccountId: creditCardAccountId,
+        specialType: 'INVOICE_PAYMENT',
+      },
+    }),
+    // Update invoice if provided
+    ...(invoiceId
+      ? [
+          prisma.creditCardInvoice.update({
+            where: { id: invoiceId },
+            data: {
+              isPaid: true,
+              paidAt: new Date(),
+              paymentTxId: null, // Will be set after debit is created
+            },
+          }),
+        ]
+      : []),
+  ])
 
-  // Receita no cartão de crédito (reduz saldo devedor)
-  const credit = await prisma.transaction.create({
-    data: {
-      workspaceId,
-      type: 'INCOME',
-      amount,
-      description: 'Pagamento de fatura recebido',
-      date,
-      bankAccountId: creditCardAccountId,
-      specialType: 'INVOICE_PAYMENT',
-    },
-  })
+  // Update invoice with paymentTxId if it was provided
+  if (invoiceId) {
+    await prisma.creditCardInvoice.update({
+      where: { id: invoiceId },
+      data: { paymentTxId: debit.id },
+    })
+  }
 
   return { debit, credit }
 }

@@ -14,13 +14,20 @@ export default async function EditAccountPage({ params }: EditAccountPageProps) 
   const session = await requireSession()
   const workspace = await getWorkspaceBySlug(workspaceSlug, session.user.id)
 
-  const [accountRaw, accountTypes] = await Promise.all([
+  const [accountRaw, accountTypes, creditCardType, checkingAccounts] = await Promise.all([
     prisma.bankAccount.findFirst({
       where: { id: id, workspaceId: workspace.id, isArchived: false },
     }),
     prisma.accountType.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { name: 'asc' }
+    }),
+    prisma.accountType.findFirst({
+      where: { workspaceId: workspace.id, name: 'Cartão de Crédito' }
+    }),
+    prisma.bankAccount.findMany({
+      where: { workspaceId: workspace.id, isArchived: false },
+      select: { id: true, name: true }
     })
   ])
 
@@ -43,11 +50,13 @@ export default async function EditAccountPage({ params }: EditAccountPageProps) 
             <p className="text-muted-foreground text-sm mt-1">Modifique as informações da conta</p>
           </div>
           <div className="glass-card p-6">
-            <AccountForm 
-              workspaceId={workspace.id} 
+            <AccountForm
+              workspaceId={workspace.id}
               workspaceSlug={workspaceSlug}
               initialData={account as any}
               accountTypes={accountTypes}
+              creditCardTypeId={creditCardType?.id}
+              checkingAccounts={checkingAccounts}
             />
           </div>
         </div>

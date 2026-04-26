@@ -10,24 +10,86 @@ import { z } from 'zod'
 // ============================================================
 // Schemas de validação
 // ============================================================
-const createAccountSchema = z.object({
-  workspaceId: z.string(),
-  name: z.string().min(1, 'Nome é obrigatório'),
-  typeId: z.string().min(1, 'Tipo de conta é obrigatório'),
-  initialBalance: z.number().default(0),
-  color: z.string().optional(),
-  icon: z.string().optional(),
-})
+const createAccountSchema = z
+  .object({
+    workspaceId: z.string(),
+    name: z.string().min(1, 'Nome é obrigatório'),
+    typeId: z.string().min(1, 'Tipo de conta é obrigatório'),
+    initialBalance: z.number().default(0),
+    color: z.string().optional(),
+    icon: z.string().optional(),
+    isCreditCard: z.boolean().default(false),
+    linkedCheckingAccountId: z.string().optional(),
+    closingDay: z.number().int().min(1).max(28).optional(),
+    dueDay: z.number().int().min(1).max(28).optional(),
+    autoPayInvoice: z.boolean().default(false),
+  })
+  .superRefine((data, ctx) => {
+    if (data.isCreditCard) {
+      if (!data.linkedCheckingAccountId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['linkedCheckingAccountId'],
+          message: 'Conta corrente é obrigatória para cartão de crédito',
+        })
+      }
+      if (!data.closingDay) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['closingDay'],
+          message: 'Dia de corte é obrigatório',
+        })
+      }
+      if (!data.dueDay) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['dueDay'],
+          message: 'Dia de vencimento é obrigatório',
+        })
+      }
+    }
+  })
 
-const updateAccountSchema = z.object({
-  id: z.string(),
-  workspaceId: z.string(),
-  name: z.string().min(1).optional(),
-  typeId: z.string().optional(),
-  color: z.string().optional(),
-  icon: z.string().optional(),
-  initialBalance: z.number().optional(),
-})
+const updateAccountSchema = z
+  .object({
+    id: z.string(),
+    workspaceId: z.string(),
+    name: z.string().min(1).optional(),
+    typeId: z.string().optional(),
+    color: z.string().optional(),
+    icon: z.string().optional(),
+    initialBalance: z.number().optional(),
+    isCreditCard: z.boolean().optional(),
+    linkedCheckingAccountId: z.string().optional(),
+    closingDay: z.number().int().min(1).max(28).optional(),
+    dueDay: z.number().int().min(1).max(28).optional(),
+    autoPayInvoice: z.boolean().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (data.isCreditCard) {
+      if (!data.linkedCheckingAccountId) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['linkedCheckingAccountId'],
+          message: 'Conta corrente é obrigatória para cartão de crédito',
+        })
+      }
+      if (!data.closingDay) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['closingDay'],
+          message: 'Dia de corte é obrigatório',
+        })
+      }
+      if (!data.dueDay) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['dueDay'],
+          message: 'Dia de vencimento é obrigatório',
+        })
+      }
+    }
+  })
 
 // ============================================================
 // Actions de Conta
@@ -43,6 +105,11 @@ export async function createAccount(formData: FormData) {
     initialBalance: Number(formData.get('initialBalance') ?? 0),
     color: formData.get('color') || undefined,
     icon: formData.get('icon') || undefined,
+    isCreditCard: formData.get('isCreditCard') === 'true',
+    linkedCheckingAccountId: formData.get('linkedCheckingAccountId') || undefined,
+    closingDay: formData.get('closingDay') ? Number(formData.get('closingDay')) : undefined,
+    dueDay: formData.get('dueDay') ? Number(formData.get('dueDay')) : undefined,
+    autoPayInvoice: formData.get('autoPayInvoice') === 'true',
   })
 
   await requireWorkspaceRole(session.user.id, data.workspaceId, 'EDITOR')
@@ -55,6 +122,11 @@ export async function createAccount(formData: FormData) {
       initialBalance: data.initialBalance,
       color: data.color,
       icon: data.icon,
+      isCreditCard: data.isCreditCard,
+      linkedCheckingAccountId: data.linkedCheckingAccountId,
+      closingDay: data.closingDay,
+      dueDay: data.dueDay,
+      autoPayInvoice: data.autoPayInvoice,
     },
   })
 
@@ -75,6 +147,11 @@ export async function updateAccount(formData: FormData) {
     initialBalance: formData.get('initialBalance')
       ? Number(formData.get('initialBalance'))
       : undefined,
+    isCreditCard: formData.get('isCreditCard') === 'true' ? true : undefined,
+    linkedCheckingAccountId: formData.get('linkedCheckingAccountId') || undefined,
+    closingDay: formData.get('closingDay') ? Number(formData.get('closingDay')) : undefined,
+    dueDay: formData.get('dueDay') ? Number(formData.get('dueDay')) : undefined,
+    autoPayInvoice: formData.get('autoPayInvoice') === 'true' ? true : undefined,
   })
 
   await requireWorkspaceRole(session.user.id, data.workspaceId, 'EDITOR')

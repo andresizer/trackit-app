@@ -150,18 +150,19 @@ model Workspace {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members           WorkspaceMember[]
-  pendingInvites    PendingInvite[]
-  bankAccounts      BankAccount[]
-  paymentMethods    PaymentMethod[]
-  categories        Category[]
-  transactions      Transaction[]
-  installmentGroups InstallmentGroup[]
-  recurringRules    RecurringRule[]
-  budgets           Budget[]
-  botSessions       BotSession[]
-  accountTypes      AccountType[]
-  botLinkTokens     BotLinkToken[]
+  members              WorkspaceMember[]
+  pendingInvites       PendingInvite[]
+  bankAccounts         BankAccount[]
+  paymentMethods       PaymentMethod[]
+  categories           Category[]
+  transactions         Transaction[]
+  installmentGroups    InstallmentGroup[]
+  recurringRules       RecurringRule[]
+  budgets              Budget[]
+  botSessions          BotSession[]
+  accountTypes         AccountType[]
+  botLinkTokens        BotLinkToken[]
+  creditCardInvoices   CreditCardInvoice[]
 
   @@map("workspaces")
 }
@@ -211,19 +212,31 @@ model BankAccount {
   icon           String?
   isArchived     Boolean     @default(false)
   legacyCode     String? // CC, DIN, CRE, VA, VR, INV — para migração
+
+  // Campos específicos de cartão de crédito
+  isCreditCard             Boolean     @default(false)
+  linkedCheckingAccountId  String?
+  closingDay               Int?        // dia de corte (1–28)
+  dueDay                   Int?        // dia de vencimento (1–28)
+  autoPayInvoice           Boolean     @default(false)
+
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt
 
-  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  accountType    AccountType?    @relation(fields: [typeId], references: [id])
-  transactions   Transaction[]
-  paymentMethods PaymentMethod[]
+  workspace             Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  accountType           AccountType?       @relation(fields: [typeId], references: [id])
+  linkedCheckingAccount BankAccount?       @relation("CreditCardLink", fields: [linkedCheckingAccountId], references: [id], onDelete: SetNull)
+  creditCards           BankAccount[]      @relation("CreditCardLink")
+  transactions          Transaction[]
+  paymentMethods        PaymentMethod[]
+  creditCardInvoices    CreditCardInvoice[]
 
   // Conta destino em transferências
   transfersIn Transaction[] @relation("TransferTarget")
 
   @@index([workspaceId])
   @@index([typeId])
+  @@index([linkedCheckingAccountId])
   @@map("bank_accounts")
 }
 
@@ -337,6 +350,7 @@ model Transaction {
   transferToAccount BankAccount?      @relation("TransferTarget", fields: [transferToAccountId], references: [id], onDelete: SetNull)
   installmentGroup  InstallmentGroup? @relation(fields: [installmentGroupId], references: [id], onDelete: SetNull)
   recurringRule     RecurringRule?    @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
+  invoicePayment    CreditCardInvoice? @relation("InvoicePaymentTx")
 
   // Índices compostos para performance
   @@index([workspaceId, date])
@@ -416,6 +430,34 @@ model Budget {
 
   @@unique([workspaceId, categoryId, month, year])
   @@map("budgets")
+}
+
+// ============================================================
+// Credit Card Invoice (fatura do cartão de crédito)
+// ============================================================
+
+model CreditCardInvoice {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  creditCardId String
+  periodStart  DateTime
+  periodEnd    DateTime
+  dueDate      DateTime
+  totalAmount  Decimal   @default(0) @db.Decimal(12, 2)
+  isPaid       Boolean   @default(false)
+  paidAt       DateTime?
+  paymentTxId  String?   @unique
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creditCard BankAccount @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
+  paymentTx  Transaction? @relation("InvoicePaymentTx", fields: [paymentTxId], references: [id], onDelete: SetNull)
+
+  @@unique([creditCardId, periodEnd])
+  @@index([workspaceId])
+  @@index([creditCardId])
+  @@map("credit_card_invoices")
 }
 
 // ============================================================

@@ -10,10 +10,17 @@ interface AccountTypeOption {
   name: string
 }
 
+interface BankAccountOption {
+  id: string
+  name: string
+}
+
 interface AccountFormProps {
   workspaceId: string
   workspaceSlug: string
   accountTypes: AccountTypeOption[]
+  creditCardTypeId?: string
+  checkingAccounts?: BankAccountOption[]
   initialData?: {
     id: string
     name: string
@@ -21,15 +28,36 @@ interface AccountFormProps {
     initialBalance: number
     color: string | null
     icon: string | null
+    isCreditCard?: boolean
+    linkedCheckingAccountId?: string | null
+    closingDay?: number | null
+    dueDay?: number | null
+    autoPayInvoice?: boolean
   }
 }
 
-export default function AccountForm({ workspaceId, workspaceSlug, initialData, accountTypes }: AccountFormProps) {
+export default function AccountForm({
+  workspaceId,
+  workspaceSlug,
+  initialData,
+  accountTypes,
+  creditCardTypeId,
+  checkingAccounts = [],
+}: AccountFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [selectedColor, setSelectedColor] = useState(initialData?.color || '#6366f1')
   const [selectedIcon, setSelectedIcon] = useState(initialData?.icon || '🏦')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [selectedTypeId, setSelectedTypeId] = useState(initialData?.typeId || '')
+  const [selectedLinkedAccount, setSelectedLinkedAccount] = useState(
+    initialData?.linkedCheckingAccountId || ''
+  )
+  const [closingDay, setClosingDay] = useState(initialData?.closingDay || 15)
+  const [dueDay, setDueDay] = useState(initialData?.dueDay || 10)
+  const [autoPayInvoice, setAutoPayInvoice] = useState(initialData?.autoPayInvoice || false)
+
+  const isCreditCardType = creditCardTypeId && selectedTypeId === creditCardTypeId
 
   const colors = [
     '#ef4444', // Red
@@ -57,7 +85,15 @@ export default function AccountForm({ workspaceId, workspaceSlug, initialData, a
     const formElement = e.currentTarget
     const form = new FormData(formElement)
     form.set('workspaceId', workspaceId)
-    
+    form.set('isCreditCard', isCreditCardType ? 'true' : 'false')
+
+    if (isCreditCardType) {
+      form.set('linkedCheckingAccountId', selectedLinkedAccount)
+      form.set('closingDay', closingDay.toString())
+      form.set('dueDay', dueDay.toString())
+      form.set('autoPayInvoice', autoPayInvoice ? 'true' : 'false')
+    }
+
     if (initialData) {
       form.set('id', initialData.id)
     }
@@ -94,7 +130,8 @@ export default function AccountForm({ workspaceId, workspaceSlug, initialData, a
         <select
           name="typeId"
           required
-          defaultValue={initialData?.typeId || ''}
+          value={selectedTypeId}
+          onChange={(e) => setSelectedTypeId(e.target.value)}
           className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
         >
           <option value="" disabled>Selecione um tipo...</option>
@@ -118,6 +155,68 @@ export default function AccountForm({ workspaceId, workspaceSlug, initialData, a
           className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
         />
       </div>
+
+      {isCreditCardType && (
+        <>
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Conta Corrente Vinculada *</label>
+            <select
+              value={selectedLinkedAccount}
+              onChange={(e) => setSelectedLinkedAccount(e.target.value)}
+              required={isCreditCardType}
+              className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+            >
+              <option value="">Selecione uma conta corrente...</option>
+              {checkingAccounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Dia de Corte *</label>
+              <input
+                type="number"
+                min="1"
+                max="28"
+                value={closingDay}
+                onChange={(e) => setClosingDay(Number(e.target.value))}
+                required={isCreditCardType}
+                className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Dia de Vencimento *</label>
+              <input
+                type="number"
+                min="1"
+                max="28"
+                value={dueDay}
+                onChange={(e) => setDueDay(Number(e.target.value))}
+                required={isCreditCardType}
+                className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <input
+              type="checkbox"
+              id="autoPayInvoice"
+              checked={autoPayInvoice}
+              onChange={(e) => setAutoPayInvoice(e.target.checked)}
+              className="w-4 h-4 rounded border-input"
+            />
+            <label htmlFor="autoPayInvoice" className="text-sm font-medium cursor-pointer">
+              Pagamento automático da fatura
+            </label>
+          </div>
+        </>
+      )}
 
       <div className="grid grid-cols-1 gap-6">
         <div className="space-y-3">
