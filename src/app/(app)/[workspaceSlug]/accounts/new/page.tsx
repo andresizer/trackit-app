@@ -13,7 +13,7 @@ export default async function NewAccountPage({ params }: NewAccountPageProps) {
   const session = await requireSession()
   const workspace = await getWorkspaceBySlug(workspaceSlug, session.user.id)
 
-  const [accountTypes, creditCardType, checkingAccounts] = await Promise.all([
+  const [accountTypes, creditCardType, checkingType] = await Promise.all([
     prisma.accountType.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { name: 'asc' }
@@ -21,11 +21,20 @@ export default async function NewAccountPage({ params }: NewAccountPageProps) {
     prisma.accountType.findFirst({
       where: { workspaceId: workspace.id, name: 'Cartão de Crédito' }
     }),
-    prisma.bankAccount.findMany({
-      where: { workspaceId: workspace.id, isArchived: false },
-      select: { id: true, name: true }
+    prisma.accountType.findFirst({
+      where: { workspaceId: workspace.id, name: 'Conta Corrente' }
     })
   ])
+
+  // Buscar apenas contas do tipo "Conta Corrente" para vincular a cartões de crédito
+  const checkingAccounts = await prisma.bankAccount.findMany({
+    where: {
+      workspaceId: workspace.id,
+      isArchived: false,
+      typeId: checkingType?.id
+    },
+    select: { id: true, name: true }
+  })
 
   return (
     <div className="flex min-h-screen">

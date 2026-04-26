@@ -114,6 +114,38 @@ export async function createAccount(formData: FormData) {
 
   await requireWorkspaceRole(session.user.id, data.workspaceId, 'EDITOR')
 
+  // Validação adicional: se for cartão de crédito, verificar que a conta vinculada é "Conta Corrente"
+  if (data.isCreditCard && data.linkedCheckingAccountId) {
+    const checkingType = await prisma.accountType.findFirst({
+      where: { workspaceId: data.workspaceId, name: 'Conta Corrente' }
+    })
+
+    if (!checkingType) {
+      throw new Error('Tipo de conta "Conta Corrente" não encontrado')
+    }
+
+    const linkedAccount = await prisma.bankAccount.findUnique({
+      where: { id: data.linkedCheckingAccountId },
+      include: { accountType: true }
+    })
+
+    if (!linkedAccount) {
+      throw new Error('Conta vinculada não encontrada')
+    }
+
+    if (linkedAccount.workspaceId !== data.workspaceId) {
+      throw new Error('Conta vinculada pertence a outro workspace')
+    }
+
+    if (linkedAccount.typeId !== checkingType.id) {
+      throw new Error('Apenas contas do tipo "Conta Corrente" podem ser vinculadas a cartões de crédito')
+    }
+
+    if (linkedAccount.isCreditCard) {
+      throw new Error('Não é permitido vincular um cartão de crédito a outro cartão de crédito')
+    }
+  }
+
   const account = await prisma.bankAccount.create({
     data: {
       workspaceId: data.workspaceId,
@@ -155,6 +187,38 @@ export async function updateAccount(formData: FormData) {
   })
 
   await requireWorkspaceRole(session.user.id, data.workspaceId, 'EDITOR')
+
+  // Validação adicional: se for cartão de crédito, verificar que a conta vinculada é "Conta Corrente"
+  if (data.isCreditCard && data.linkedCheckingAccountId) {
+    const checkingType = await prisma.accountType.findFirst({
+      where: { workspaceId: data.workspaceId, name: 'Conta Corrente' }
+    })
+
+    if (!checkingType) {
+      throw new Error('Tipo de conta "Conta Corrente" não encontrado')
+    }
+
+    const linkedAccount = await prisma.bankAccount.findUnique({
+      where: { id: data.linkedCheckingAccountId },
+      include: { accountType: true }
+    })
+
+    if (!linkedAccount) {
+      throw new Error('Conta vinculada não encontrada')
+    }
+
+    if (linkedAccount.workspaceId !== data.workspaceId) {
+      throw new Error('Conta vinculada pertence a outro workspace')
+    }
+
+    if (linkedAccount.typeId !== checkingType.id) {
+      throw new Error('Apenas contas do tipo "Conta Corrente" podem ser vinculadas a cartões de crédito')
+    }
+
+    if (linkedAccount.isCreditCard) {
+      throw new Error('Não é permitido vincular um cartão de crédito a outro cartão de crédito')
+    }
+  }
 
   const { id, workspaceId, ...updateData } = data
 
