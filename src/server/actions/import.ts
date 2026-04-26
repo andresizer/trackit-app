@@ -18,12 +18,73 @@ export interface BulkImportResult {
   errors: Array<{ index: number; message: string }>
 }
 
+export interface CandidateTransaction {
+  id: string
+  date: string
+  description: string | null
+  amount: number
+  type: 'INCOME' | 'EXPENSE'
+  bankAccountId: string
+}
+
+export async function fetchDuplicateCandidates(
+  workspaceSlug: string,
+  bankAccountIds: string[],
+  dateMin: string,
+  dateMax: string
+): Promise<CandidateTransaction[]> {
+  const session = await requireSession()
+  const workspace = await getWorkspaceBySlug(workspaceSlug, session.user.id)
+
+  const from = new Date(dateMin)
+  from.setDate(from.getDate() - 1)
+  const to = new Date(dateMax)
+  to.setDate(to.getDate() + 1)
+
+  const rows = await prisma.transaction.findMany({
+    where: {
+      workspaceId: workspace.id,
+      bankAccountId: { in: bankAccountIds },
+      date: { gte: from, lte: to },
+      type: { in: ['INCOME', 'EXPENSE'] },
+    },
+    select: {
+      id: true,
+      date: true,
+      description: true,
+      amount: true,
+      type: true,
+      bankAccountId: true,
+    },
+  })
+
+  return rows.map((r) => ({
+    id: r.id,
+    date: r.date.toISOString(),
+    description: r.description,
+    amount: Number(r.amount),
+    type: r.type as 'INCOME' | 'EXPENSE',
+    bankAccountId: r.bankAccountId,
+  }))
+}
+
 export async function bulkImportTransactions(
   workspaceSlug: string,
-  transactions: ImportTransaction[]
+  transactions: ImportTransaction[],
+  replaceIds?: string[]
 ): Promise<BulkImportResult> {
   const session = await requireSession()
   const workspace = await getWorkspaceBySlug(workspaceSlug, session.user.id)
+
+  // Delete replaced transactions first
+  if (replaceIds?.length) {
+    await prisma.transaction.deleteMany({
+      where: {
+        id: { in: replaceIds },
+        workspaceId: workspace.id,
+      },
+    })
+  }
 
   const errors: BulkImportResult['errors'] = []
   const validRows: {

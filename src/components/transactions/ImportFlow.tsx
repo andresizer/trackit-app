@@ -42,10 +42,10 @@ export default function ImportFlow({
     setStep('preview')
   }
 
-  async function handleConfirm(transactions: ImportTransaction[]) {
+  async function handleConfirm(transactions: ImportTransaction[], replaceIds: string[]) {
     setIsSubmitting(true)
     try {
-      const res = await bulkImportTransactions(workspaceSlug, transactions)
+      const res = await bulkImportTransactions(workspaceSlug, transactions, replaceIds)
       setResult(res)
       setStep('result')
     } finally {
@@ -67,6 +67,7 @@ export default function ImportFlow({
           parsed={parsed}
           accounts={accounts}
           categories={categories}
+          workspaceSlug={workspaceSlug}
           onConfirm={handleConfirm}
           onBack={handleReset}
           isSubmitting={isSubmitting}

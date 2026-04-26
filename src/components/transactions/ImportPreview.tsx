@@ -1,9 +1,10 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AlertCircle, ChevronLeft } from 'lucide-react'
 import type { ParseResult, ParsedRow } from '@/lib/transactions/parsers'
-import type { ImportTransaction } from '@/server/actions/import'
+import type { ImportTransaction, CandidateTransaction } from '@/server/actions/import'
+import { fetchDuplicateCandidates } from '@/server/actions/import'
 
 interface Account { id: string; name: string }
 interface Category { id: string; name: string; children?: { id: string; name: string }[] }
@@ -12,9 +13,17 @@ interface ImportPreviewProps {
   parsed: ParseResult
   accounts: Account[]
   categories: Category[]
-  onConfirm: (transactions: ImportTransaction[]) => void
+  workspaceSlug: string
+  onConfirm: (transactions: ImportTransaction[], replaceIds: string[]) => void
   onBack: () => void
   isSubmitting: boolean
+}
+
+type DuplicateMatch = {
+  rowIndex: number
+  incoming: ImportTransaction
+  existing: CandidateTransaction
+  strength: 'strong' | 'weak'
 }
 
 function normalize(s: string) {
@@ -24,6 +33,52 @@ function normalize(s: string) {
 function matchByName<T extends { name: string }>(list: T[], name: string): T | undefined {
   const n = normalize(name)
   return list.find((x) => normalize(x.name) === n)
+}
+
+function detectDuplicates(
+  rows: ParsedRow[],
+  resolveAccountFn: (row: ParsedRow, i: number) => string,
+  candidates: CandidateTransaction[]
+): DuplicateMatch[] {
+  const matches: DuplicateMatch[] = []
+
+  for (let i = 0; i < rows.length; i++) {
+    const row = rows[i]
+    const bankAccountId = resolveAccountFn(row, i)
+    if (!bankAccountId) continue
+
+    const rowDay = row.date.toISOString().slice(0, 10)
+
+    for (const c of candidates) {
+      if (c.bankAccountId !== bankAccountId) continue
+      const cDay = c.date.slice(0, 10)
+      if (cDay !== rowDay) continue
+      if (c.amount !== row.amount) continue
+
+      const descMatch = normalize(c.description ?? '') === normalize(row.description)
+      matches.push({
+        rowIndex: i,
+        incoming: {
+          date: row.date.toISOString(),
+          description: row.description,
+          amount: row.amount,
+          type: row.type,
+          bankAccountId,
+        },
+        existing: c,
+        strength: descMatch ? 'strong' : 'weak',
+      })
+    }
+  }
+
+  const best: Map<number, DuplicateMatch> = new Map()
+  for (const m of matches) {
+    const prev = best.get(m.rowIndex)
+    if (!prev || (m.strength === 'strong' && prev.strength === 'weak')) {
+      best.set(m.rowIndex, m)
+    }
+  }
+  return Array.from(best.values())
 }
 
 const FORMAT_LABELS: Record<string, string> = {
@@ -36,6 +91,7 @@ export default function ImportPreview({
   parsed,
   accounts,
   categories,
+  workspaceSlug,
   onConfirm,
   onBack,
   isSubmitting,
@@ -78,6 +134,11 @@ export default function ImportPreview({
     return mapping
   })
 
+  // Duplicate detection state
+  const [candidates, setCandidates] = useState<CandidateTransaction[] | null>(null)
+  const [isCheckingDuplicates, setIsCheckingDuplicates] = useState(false)
+  const [duplicateDecisions, setDuplicateDecisions] = useState<Record<number, 'keep' | 'skip' | 'replace'>>({})
+
   function resolveAccount(row: ParsedRow, i: number): string {
     if (accountOverrides[i]) return accountOverrides[i]
     if (needsGlobalAccount) return globalAccountId
@@ -119,21 +180,74 @@ export default function ImportPreview({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, accounts, accountOverrides, needsGlobalAccount])
 
-  function buildTransactions(): ImportTransaction[] {
-    return rows.map((row, i) => ({
-      date: row.date.toISOString(),
-      description: row.description,
-      amount: row.amount,
-      type: row.type,
-      bankAccountId: resolveAccount(row, i),
-      categoryId: resolveCategory(row) || undefined,
-    }))
+  // Check for duplicates when accounts are resolved
+  useEffect(() => {
+    const accountsReady = needsGlobalAccount ? !!globalAccountId : unresolvedAccounts.length === 0
+    if (!accountsReady || rows.length === 0) {
+      setCandidates(null)
+      setDuplicateDecisions({})
+      return
+    }
+
+    const bankAccountIds = [
+      ...new Set(rows.map((r, i) => resolveAccount(r, i)).filter(Boolean)),
+    ]
+    if (bankAccountIds.length === 0) return
+
+    const dates = rows.map((r) => r.date.getTime())
+    const dateMin = new Date(Math.min(...dates)).toISOString()
+    const dateMax = new Date(Math.max(...dates)).toISOString()
+
+    setIsCheckingDuplicates(true)
+    setDuplicateDecisions({})
+
+    fetchDuplicateCandidates(workspaceSlug, bankAccountIds, dateMin, dateMax)
+      .then(setCandidates)
+      .finally(() => setIsCheckingDuplicates(false))
+  }, [globalAccountId, unresolvedAccounts.length, rows, workspaceSlug, needsGlobalAccount])
+
+  const duplicateMatches = useMemo<DuplicateMatch[]>(() => {
+    if (!candidates) return []
+    return detectDuplicates(rows, resolveAccount, candidates)
+  }, [candidates, rows, accountOverrides, globalAccountId])
+
+  const unresolvedDuplicates = useMemo(() => {
+    return duplicateMatches.filter((m) => !duplicateDecisions[m.rowIndex])
+  }, [duplicateMatches, duplicateDecisions])
+
+  function buildTransactions(): { transactions: ImportTransaction[]; replaceIds: string[] } {
+    const transactions: ImportTransaction[] = []
+    const replaceIds: string[] = []
+
+    rows.forEach((row, i) => {
+      const decision = duplicateDecisions[i]
+
+      if (decision === 'skip') return
+
+      if (decision === 'replace') {
+        const match = duplicateMatches.find((m) => m.rowIndex === i)
+        if (match) replaceIds.push(match.existing.id)
+      }
+
+      transactions.push({
+        date: row.date.toISOString(),
+        description: row.description,
+        amount: row.amount,
+        type: row.type,
+        bankAccountId: resolveAccount(row, i),
+        categoryId: resolveCategory(row) || undefined,
+      })
+    })
+
+    return { transactions, replaceIds }
   }
 
   const canConfirm =
     !isSubmitting &&
+    !isCheckingDuplicates &&
     unresolvedCategories.length === 0 &&
-    (needsGlobalAccount ? !!globalAccountId : unresolvedAccounts.length === 0)
+    (needsGlobalAccount ? !!globalAccountId : unresolvedAccounts.length === 0) &&
+    unresolvedDuplicates.length === 0
 
   function getCategoryLabel(id: string): string {
     return allCategories.find((c) => c.id === id)?.label ?? ''
@@ -244,6 +358,102 @@ export default function ImportPreview({
         </div>
       )}
 
+      {/* Checking duplicates spinner */}
+      {isCheckingDuplicates && (
+        <div className="glass-card p-4 flex items-center gap-2 text-sm text-muted-foreground">
+          <span className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+          Verificando duplicatas...
+        </div>
+      )}
+
+      {/* Duplicate warning panel */}
+      {!isCheckingDuplicates && duplicateMatches.length > 0 && (
+        <div className="glass-card p-4 space-y-4">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-amber-500" />
+            <p className="text-sm font-medium">
+              {unresolvedDuplicates.length > 0
+                ? `${duplicateMatches.length} possível${duplicateMatches.length > 1 ? 'is' : ''} duplicata${duplicateMatches.length > 1 ? 's' : ''} — decida o que fazer`
+                : `${duplicateMatches.length} duplicata${duplicateMatches.length > 1 ? 's' : ''} resolvida${duplicateMatches.length > 1 ? 's' : ''}`}
+            </p>
+          </div>
+
+          {duplicateMatches
+            .sort((a, b) => (a.strength === b.strength ? 0 : a.strength === 'strong' ? -1 : 1))
+            .map((match) => {
+              const decision = duplicateDecisions[match.rowIndex]
+              return (
+                <div
+                  key={match.rowIndex}
+                  className={`rounded-lg border p-3 space-y-2 ${
+                    match.strength === 'strong'
+                      ? 'border-amber-400/60 bg-amber-50/50 dark:bg-amber-950/20'
+                      : 'border-amber-300/40 bg-amber-50/30 dark:bg-amber-950/10'
+                  }`}
+                >
+                  {/* Strength badge */}
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                        match.strength === 'strong'
+                          ? 'bg-amber-200 text-amber-800 dark:bg-amber-800 dark:text-amber-200'
+                          : 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300'
+                      }`}
+                    >
+                      {match.strength === 'strong' ? 'Coincidência exata' : 'Mesmo valor/data'}
+                    </span>
+                    <span className="text-xs text-muted-foreground">linha {match.rowIndex + 1}</span>
+                  </div>
+
+                  {/* Side-by-side comparison */}
+                  <div className="grid grid-cols-2 gap-3 text-xs">
+                    <div className="space-y-1">
+                      <p className="font-medium text-muted-foreground uppercase tracking-wide text-[10px]">
+                        No arquivo
+                      </p>
+                      <p className="font-mono">
+                        {new Date(match.incoming.date).toLocaleDateString('pt-BR')}
+                      </p>
+                      <p className="truncate">{match.incoming.description}</p>
+                      <p className="font-mono">R$ {match.incoming.amount.toFixed(2)}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-medium text-muted-foreground uppercase tracking-wide text-[10px]">
+                        Já no sistema
+                      </p>
+                      <p className="font-mono">{new Date(match.existing.date).toLocaleDateString('pt-BR')}</p>
+                      <p className="truncate">{match.existing.description ?? '—'}</p>
+                      <p className="font-mono">R$ {match.existing.amount.toFixed(2)}</p>
+                    </div>
+                  </div>
+
+                  {/* Action buttons */}
+                  <div className="flex gap-2 flex-wrap">
+                    {(['keep', 'skip', 'replace'] as const).map((action) => (
+                      <button
+                        key={action}
+                        onClick={() =>
+                          setDuplicateDecisions((prev) => ({
+                            ...prev,
+                            [match.rowIndex]: action,
+                          }))
+                        }
+                        className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors ${
+                          decision === action
+                            ? 'bg-primary text-primary-foreground border-primary'
+                            : 'border-border hover:bg-muted'
+                        }`}
+                      >
+                        {action === 'keep' ? 'Manter' : action === 'skip' ? 'Ignorar' : 'Substituir'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+        </div>
+      )}
+
       {/* Preview table — all rows with scroll */}
       <div className="glass-card overflow-hidden flex flex-col">
         <div className="p-4 border-b border-border">
@@ -315,7 +525,10 @@ export default function ImportPreview({
           <ChevronLeft className="w-4 h-4" /> Voltar
         </button>
         <button
-          onClick={() => onConfirm(buildTransactions())}
+          onClick={() => {
+            const { transactions, replaceIds } = buildTransactions()
+            onConfirm(transactions, replaceIds)
+          }}
           disabled={!canConfirm}
           className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
