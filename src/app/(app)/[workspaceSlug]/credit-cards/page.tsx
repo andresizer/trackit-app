@@ -44,6 +44,11 @@ export default async function CreditCardsPage({ params }: CreditCardsPageProps) 
     })
   )
 
+  const totalInvoice = cardInvoices.reduce(
+    (sum, { invoice }) => sum + (invoice ? Number(invoice.totalAmount) : 0),
+    0
+  )
+
   return (
     <div className="flex min-h-screen">
       <Sidebar workspaceSlug={workspaceSlug} workspaceName={workspace.name} />
@@ -62,6 +67,17 @@ export default async function CreditCardsPage({ params }: CreditCardsPageProps) 
             <Plus className="w-4 h-4" /> Novo Cartão
           </Link>
         </div>
+
+        {creditCards.length > 0 && (
+          <div className="glass-card p-4">
+            <div className="flex items-center justify-between p-3 rounded-xl bg-primary/5">
+              <span className="text-sm font-medium">Fatura Total</span>
+              <span className="text-lg font-bold text-red-500">
+                {formatCurrency(totalInvoice)}
+              </span>
+            </div>
+          </div>
+        )}
 
         {creditCards.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20 text-center">
@@ -202,7 +218,7 @@ export default async function CreditCardsPage({ params }: CreditCardsPageProps) 
                   {/* Footer com link para detalhes */}
                   {isConfigured && (
                     <Link
-                      href={`/${workspaceSlug}/accounts/${card.id}`}
+                      href={`/${workspaceSlug}/credit-cards/${card.id}`}
                       className="flex items-center justify-center gap-2 w-full py-3 border-t border-border text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
                     >
                       {invoice && !invoice.isPaid ? 'Ver fatura e pagar' : 'Ver fatura'}
