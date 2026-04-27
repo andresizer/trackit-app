@@ -1,26 +1,119 @@
-import { suggestCategory } from '@/lib/ai/categorize'
-
 /**
  * Intenções reconhecidas pelo bot.
  */
 export type BotIntent =
-  | { type: 'register_expense'; description: string; amount: number }
-  | { type: 'register_income'; description: string; amount: number }
+  | { type: 'register_expense'; description: string; amount: number; date?: Date }
+  | { type: 'register_income'; description: string; amount: number; date?: Date }
+  | { type: 'register_batch'; lines: Array<{ description: string; amount: number; date?: Date }> }
+  | { type: 'recent_transactions' }
   | { type: 'check_balance' }
   | { type: 'monthly_summary' }
+  | { type: 'cancel' }
   | { type: 'help' }
   | { type: 'link_account'; code: string }
   | { type: 'unknown'; raw: string }
 
+const DAY_NAMES: Record<string, number> = {
+  domingo: 0, segunda: 1, terca: 2, terça: 2,
+  quarta: 3, quinta: 4, sexta: 5, sabado: 6, sábado: 6,
+}
+
+/**
+ * Parseia um token de data relativa ou absoluta.
+ * Retorna a Date se reconhecido, null caso contrário.
+ */
+export function parseRelativeDate(token: string): Date | null {
+  const t = token.trim().toLowerCase()
+  const now = new Date()
+
+  if (t === 'ontem') {
+    const d = new Date(now)
+    d.setDate(d.getDate() - 1)
+    d.setHours(12, 0, 0, 0)
+    return d
+  }
+
+  if (t === 'hoje') {
+    const d = new Date(now)
+    d.setHours(12, 0, 0, 0)
+    return d
+  }
+
+  const dayIndex = DAY_NAMES[t]
+  if (dayIndex !== undefined) {
+    const d = new Date(now)
+    const currentDay = d.getDay()
+    let diff = currentDay - dayIndex
+    if (diff <= 0) diff += 7
+    d.setDate(d.getDate() - diff)
+    d.setHours(12, 0, 0, 0)
+    return d
+  }
+
+  // Formato: "20/04" ou "20/04/25" ou "20/04/2025"
+  const dateMatch = t.match(/^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?$/)
+  if (dateMatch) {
+    const day = parseInt(dateMatch[1])
+    const month = parseInt(dateMatch[2]) - 1
+    let year = now.getFullYear()
+    if (dateMatch[3]) {
+      year = parseInt(dateMatch[3])
+      if (year < 100) year += 2000
+    }
+    const d = new Date(year, month, day, 12, 0, 0, 0)
+    if (!isNaN(d.getTime())) return d
+  }
+
+  return null
+}
+
+/**
+ * Tenta parsear uma linha como "descrição valor [data]" ou "valor descrição [data]".
+ * Retorna null se não reconhecer.
+ */
+function parseSingleLine(line: string): { description: string; amount: number; date?: Date } | null {
+  const trimmed = line.trim()
+  if (!trimmed) return null
+
+  // Verificar se o último token é uma data
+  const tokens = trimmed.split(/\s+/)
+  let dateToken: Date | undefined
+  let withoutDate = trimmed
+
+  if (tokens.length > 2) {
+    const lastToken = tokens[tokens.length - 1]
+    const parsed = parseRelativeDate(lastToken)
+    if (parsed) {
+      dateToken = parsed
+      withoutDate = tokens.slice(0, -1).join(' ')
+    }
+  }
+
+  const normalized = withoutDate.toLowerCase()
+
+  // Padrão: "descrição valor" (ex: "ifood 42,50")
+  const fwdMatch = normalized.match(/^(.+?)\s+([\d]+[.,]?\d*)\s*$/)
+  if (fwdMatch) {
+    const amount = parseFloat(fwdMatch[2].replace(',', '.'))
+    if (!isNaN(amount) && amount > 0) {
+      return { description: fwdMatch[1].trim(), amount, date: dateToken }
+    }
+  }
+
+  // Padrão: "valor descrição" (ex: "42,50 ifood")
+  const revMatch = normalized.match(/^([\d]+[.,]?\d*)\s+(.+?)$/)
+  if (revMatch) {
+    const amount = parseFloat(revMatch[1].replace(',', '.'))
+    if (!isNaN(amount) && amount > 0) {
+      return { description: revMatch[2].trim(), amount, date: dateToken }
+    }
+  }
+
+  return null
+}
+
 /**
  * Parseia a mensagem do usuário e extrai a intenção.
- *
- * Padrões reconhecidos:
- * - "ifood 42,50" → registrar despesa (R$ 42,50 no iFood)
- * - "saldo" → consultar saldos
- * - "resumo" → resumo mensal
- * - "salário 5000" → registrar receita
- * - "ajuda" / "help" → lista de comandos
  */
 export function parseMessage(text: string): BotIntent {
   const normalized = text.trim().toLowerCase()
@@ -46,51 +139,30 @@ export function parseMessage(text: string): BotIntent {
     return { type: 'help' }
   }
 
-  // Padrão: "descrição valor" (ex: "ifood 42,50")
-  const expenseMatch = normalized.match(
-    /^(.+?)\s+([\d]+[.,]?\d*)\s*$/
-  )
+  // Comando: cancelar
+  if (['cancelar', '/cancelar', 'cancel', '/cancel'].includes(normalized)) {
+    return { type: 'cancel' }
+  }
 
-  if (expenseMatch) {
-    const description = expenseMatch[1].trim()
-    const amount = parseFloat(expenseMatch[2].replace(',', '.'))
+  // Comando: transações recentes
+  if (['/transacoes', '/transações', 'transações', 'transacoes'].includes(normalized)) {
+    return { type: 'recent_transactions' }
+  }
 
-    if (!isNaN(amount) && amount > 0) {
-      // Heurística: se a descrição sugere receita
-      const incomeKeywords = [
-        'salário', 'salario', 'freelance', 'rendimento',
-        'recebimento', 'recebido', 'venda', 'bonificação',
-        'restituição', 'resgate',
-      ]
-
-      const isIncome = incomeKeywords.some((kw) =>
-        description.includes(kw)
-      )
-
-      return {
-        type: isIncome ? 'register_income' : 'register_expense',
-        description,
-        amount,
-      }
+  // Detecção de batch: múltiplas linhas
+  const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
+  if (lines.length >= 2) {
+    const parsed = lines.map(parseSingleLine).filter(Boolean) as Array<{ description: string; amount: number; date?: Date }>
+    if (parsed.length >= 2) {
+      return { type: 'register_batch', lines: parsed }
     }
   }
 
-  // Tenta parsear com valor no início: "42,50 ifood"
-  const reverseMatch = normalized.match(
-    /^([\d]+[.,]?\d*)\s+(.+?)$/
-  )
-
-  if (reverseMatch) {
-    const amount = parseFloat(reverseMatch[1].replace(',', '.'))
-    const description = reverseMatch[2].trim()
-
-    if (!isNaN(amount) && amount > 0) {
-      return {
-        type: 'register_expense',
-        description,
-        amount,
-      }
-    }
+  // Transação única
+  const single = parseSingleLine(text)
+  if (single) {
+    // Tipo será determinado pela IA; usar register_expense como placeholder
+    return { type: 'register_expense', ...single }
   }
 
   return { type: 'unknown', raw: text }
@@ -104,4 +176,11 @@ export function formatCurrency(amount: number): string {
     style: 'currency',
     currency: 'BRL',
   }).format(amount)
+}
+
+/**
+ * Formata data de forma compacta (ex: "20/04").
+ */
+export function formatDate(date: Date): string {
+  return date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })
 }

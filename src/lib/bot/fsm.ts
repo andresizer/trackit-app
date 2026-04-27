@@ -1,6 +1,16 @@
 import { prisma } from '@/lib/db/prisma'
 import { BotSessionState, Prisma } from '@prisma/client'
 
+export interface BatchItem {
+  description: string
+  amount: number
+  type: 'INCOME' | 'EXPENSE'
+  categoryId?: string
+  categoryName?: string
+  date: string
+  aiConfidence?: number
+}
+
 /**
  * Contexto temporário armazenado durante o fluxo do bot.
  */
@@ -11,8 +21,9 @@ export interface BotContext {
   categoryId?: string
   categoryName?: string
   bankAccountId?: string
-  paymentMethodId?: string
   aiConfidence?: number
+  date?: string
+  batch?: BatchItem[]
 }
 
 /**

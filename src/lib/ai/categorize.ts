@@ -9,6 +9,7 @@ export interface CategorySuggestion {
   paymentMethodId?: string
   paymentMethodName?: string
   confidence: number
+  transactionType?: 'INCOME' | 'EXPENSE'
 }
 
 /**
@@ -85,6 +86,7 @@ ${historyContext}
 
 Responda com JSON no formato:
 {
+  "transactionType": "INCOME" ou "EXPENSE" (INCOME: salário, freelance, dividendo, reembolso, rendimento, venda, resgate; EXPENSE: todo o resto),
   "categoryId": "id da categoria ou subcategoria mais adequada",
   "categoryName": "nome da categoria",
   "subcategoryId": "id da subcategoria (se aplicável, senão null)",

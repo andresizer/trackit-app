@@ -1,12 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { parseTelegramUpdate, sendMessage } from '@/lib/bot/telegram'
-import { handleBotMessage, type BotSender } from '@/lib/bot/commands'
+import { parseTelegramUpdate, sendMessage, sendMessageWithButtons, answerCallbackQuery } from '@/lib/bot/telegram'
+import { handleBotMessage, handleCallbackQuery, type BotSender } from '@/lib/bot/commands'
 import { prisma } from '@/lib/db/prisma'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     const update = parseTelegramUpdate(body)
+
+    // Tratar clique em botão inline
+    if (update.callback_query) {
+      const { id: callbackId, from, data: callbackData, message } = update.callback_query
+      const chatId = String(message.chat.id)
+
+      await answerCallbackQuery(callbackId)
+
+      const botSession = await prisma.botSession.findUnique({
+        where: { platform_chatId: { platform: 'telegram', chatId } },
+        include: { user: true },
+      })
+
+      if (botSession) {
+        const sender = buildSender(chatId)
+        await handleCallbackQuery(
+          botSession.userId,
+          botSession.workspaceId,
+          'telegram',
+          chatId,
+          callbackData,
+          sender
+        )
+      }
+
+      return NextResponse.json({ ok: true })
+    }
 
     if (!update.message?.text) {
       return NextResponse.json({ ok: true })
@@ -37,9 +64,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: true })
     }
 
-    const sender: BotSender = {
-      sendMessage: async (id, msg) => { await sendMessage(id, msg) },
-    }
+    const sender = buildSender(chatId)
 
     await handleBotMessage(
       botSession.userId,
@@ -54,6 +79,15 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Erro no webhook Telegram:', error)
     return NextResponse.json({ ok: true })
+  }
+}
+
+function buildSender(chatId: string): BotSender {
+  return {
+    sendMessage: async (id, msg) => { await sendMessage(id, msg) },
+    sendMessageWithButtons: async (id, msg, buttons) => {
+      await sendMessageWithButtons(id, msg, buttons)
+    },
   }
 }
 
@@ -78,7 +112,6 @@ async function handleLinkCommand(chatId: string, code: string) {
     return NextResponse.json({ ok: true })
   }
 
-  // Criar sessão e marcar token como usado
   await prisma.$transaction([
     prisma.botSession.create({
       data: {
