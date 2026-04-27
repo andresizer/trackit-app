@@ -1,21 +1,15 @@
-import {
-  startOfMonth,
-  endOfMonth,
-  setDate,
-  addMonths,
-  subMonths,
-  addDays,
-  isAfter,
-} from 'date-fns';
-
 export interface InvoicePeriod {
   periodStart: Date;
   periodEnd: Date;
   dueDate: Date;
 }
 
-function toUtcMidnight(date: Date): Date {
-  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+function daysInMonth(year: number, month: number): number {
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+}
+
+function utc(year: number, month: number, day: number): Date {
+  return new Date(Date.UTC(year, month, day));
 }
 
 export function getInvoicePeriod(
@@ -23,32 +17,42 @@ export function getInvoicePeriod(
   dueDay: number,
   referenceDate: Date = new Date()
 ): InvoicePeriod {
-  // Normalize referenceDate to UTC midnight for consistent comparison
-  const refDate = toUtcMidnight(referenceDate);
-  const refMonth = startOfMonth(refDate);
-  const lastDayOfRefMonth = endOfMonth(refMonth);
-  const clampedClosingDay = Math.min(closingDay, lastDayOfRefMonth.getDate());
+  const refYear = referenceDate.getUTCFullYear();
+  const refMonth = referenceDate.getUTCMonth(); // 0-indexed
+  const refDay = referenceDate.getUTCDate();
 
-  // Determine periodEnd:
-  // If referenceDate is BEFORE or ON thisMonthClosingDate → this month's closing
-  // If referenceDate is AFTER thisMonthClosingDate → next month's closing (period already closed)
-  const thisMonthClosingDate = setDate(refMonth, clampedClosingDay);
-  const periodEnd = isAfter(refDate, thisMonthClosingDate)
-    ? toUtcMidnight(setDate(startOfMonth(addMonths(refMonth, 1)), clampedClosingDay))
-    : toUtcMidnight(thisMonthClosingDate);
+  const clampedClosing = Math.min(closingDay, daysInMonth(refYear, refMonth));
 
-  // periodStart = closingDay+1 of previous month to periodEnd
-  const previousMonthStart = subMonths(periodEnd, 1);
-  const previousMonthClosing = setDate(
-    endOfMonth(previousMonthStart),
-    Math.min(closingDay, endOfMonth(previousMonthStart).getDate())
-  );
-  const periodStart = toUtcMidnight(addDays(previousMonthClosing, 1));
+  // Se refDay <= closingDay: período fecha ESTE mês
+  // Se refDay > closingDay: período fecha NO MÊS QUE VEM
+  let endYear: number, endMonth: number, endDay: number;
+  if (refDay <= clampedClosing) {
+    endYear = refYear;
+    endMonth = refMonth;
+    endDay = clampedClosing;
+  } else {
+    const nextRawMonth = refMonth + 1;
+    endMonth = nextRawMonth > 11 ? 0 : nextRawMonth;
+    endYear = nextRawMonth > 11 ? refYear + 1 : refYear;
+    endDay = Math.min(closingDay, daysInMonth(endYear, endMonth));
+  }
+  const periodEnd = utc(endYear, endMonth, endDay);
 
-  // dueDate = dueDay of the month following periodEnd
-  const dueMonth = addMonths(periodEnd, 1);
-  const clampedDueDay = Math.min(dueDay, endOfMonth(dueMonth).getDate());
-  const dueDate = toUtcMidnight(setDate(dueMonth, clampedDueDay));
+  // Fechamento anterior: mesmo closingDay, mês anterior ao periodEnd
+  const prevRawMonth = endMonth - 1;
+  const prevMonth = prevRawMonth < 0 ? 11 : prevRawMonth;
+  const prevYear = prevRawMonth < 0 ? endYear - 1 : endYear;
+  const prevClosingDay = Math.min(closingDay, daysInMonth(prevYear, prevMonth));
+  const prevClosing = utc(prevYear, prevMonth, prevClosingDay);
+
+  // periodStart = dia seguinte ao fechamento anterior
+  const periodStart = new Date(prevClosing.getTime() + 86_400_000);
+
+  // dueDate = dueDay do mês seguinte ao periodEnd
+  const dueRawMonth = endMonth + 1;
+  const dueMonth = dueRawMonth > 11 ? 0 : dueRawMonth;
+  const dueYear = dueRawMonth > 11 ? endYear + 1 : endYear;
+  const dueDate = utc(dueYear, dueMonth, Math.min(dueDay, daysInMonth(dueYear, dueMonth)));
 
   return { periodStart, periodEnd, dueDate };
 }
@@ -60,12 +64,16 @@ export function getAllInvoicePeriods(
   today: Date = new Date()
 ): InvoicePeriod[] {
   const periods: InvoicePeriod[] = [];
-  let currentRef = new Date(firstDate);
+  let refYear = firstDate.getUTCFullYear();
+  let refMonth = firstDate.getUTCMonth();
 
-  while (!isAfter(currentRef, today)) {
-    const period = getInvoicePeriod(closingDay, dueDay, currentRef);
+  while (true) {
+    const refDate = utc(refYear, refMonth, 1);
+    if (refDate > today) break;
+    const period = getInvoicePeriod(closingDay, dueDay, refDate);
     periods.push(period);
-    currentRef = addMonths(currentRef, 1);
+    refMonth++;
+    if (refMonth > 11) { refMonth = 0; refYear++; }
   }
 
   return periods;
@@ -75,7 +83,6 @@ export function getInvoicePeriodForDate(
   closingDay: number,
   transactionDate: Date
 ): Date {
-  // Return the periodEnd date for the invoice that contains transactionDate
-  const currentPeriod = getInvoicePeriod(closingDay, 15, transactionDate); // dueDay doesn't affect periodEnd
-  return currentPeriod.periodEnd;
+  const period = getInvoicePeriod(closingDay, 1, transactionDate);
+  return period.periodEnd;
 }

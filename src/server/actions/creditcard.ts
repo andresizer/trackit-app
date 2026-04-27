@@ -177,3 +177,80 @@ async function payInvoiceActionInternal(
     amount >= totalAmount // Only mark as paid if paying full amount
   )
 }
+
+export async function deleteInvoiceAction(invoiceId: string, workspaceId: string) {
+  const session = await requireSession()
+  await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
+
+  const invoice = await prisma.creditCardInvoice.findUnique({
+    where: { id: invoiceId },
+  })
+
+  if (!invoice) {
+    throw new Error('Fatura não encontrada')
+  }
+
+  await prisma.creditCardInvoice.delete({
+    where: { id: invoiceId },
+  })
+
+  revalidatePath(`/[workspaceSlug]/accounts`, 'layout')
+  revalidatePath(`/[workspaceSlug]/accounts/${invoice.creditCardId}`, 'page')
+
+  return { success: true }
+}
+
+export async function toggleInvoicePaidAction(invoiceId: string, workspaceId: string) {
+  const session = await requireSession()
+  await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
+
+  const invoice = await prisma.creditCardInvoice.findUnique({
+    where: { id: invoiceId },
+  })
+
+  if (!invoice) {
+    throw new Error('Fatura não encontrada')
+  }
+
+  const newIsPaid = !invoice.isPaid
+  await prisma.creditCardInvoice.update({
+    where: { id: invoiceId },
+    data: { isPaid: newIsPaid },
+  })
+
+  revalidatePath(`/[workspaceSlug]/accounts`, 'layout')
+  revalidatePath(`/[workspaceSlug]/accounts/${invoice.creditCardId}`, 'page')
+
+  return { success: true }
+}
+
+export async function updateInvoiceDueDateAction(
+  invoiceId: string,
+  workspaceId: string,
+  newDueDate: Date
+) {
+  const session = await requireSession()
+  await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
+
+  const invoice = await prisma.creditCardInvoice.findUnique({
+    where: { id: invoiceId },
+  })
+
+  if (!invoice) {
+    throw new Error('Fatura não encontrada')
+  }
+
+  if (invoice.isPaid) {
+    throw new Error('Não é possível editar fatura já paga')
+  }
+
+  await prisma.creditCardInvoice.update({
+    where: { id: invoiceId },
+    data: { dueDate: newDueDate },
+  })
+
+  revalidatePath(`/[workspaceSlug]/accounts`, 'layout')
+  revalidatePath(`/[workspaceSlug]/accounts/${invoice.creditCardId}`, 'page')
+
+  return { success: true }
+}
