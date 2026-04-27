@@ -57,9 +57,10 @@ export async function computeInvoiceTotal(
         gte: periodStart,
         lte: periodEnd,
       },
-      specialType: {
-        not: 'INVOICE_PAYMENT',
-      },
+      OR: [
+        { specialType: null },
+        { specialType: { not: 'INVOICE_PAYMENT' } },
+      ],
     },
     _sum: {
       amount: true,
