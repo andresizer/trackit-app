@@ -17,7 +17,6 @@ export async function getOrCreateInvoice(
     throw new Error('Credit card missing closingDay or dueDay');
   }
 
-  const normalizedPeriodEnd = new Date(periodEnd.toISOString().split('T')[0]);
   const periodData = getInvoicePeriod(
     creditCard.closingDay,
     creditCard.dueDay,
@@ -25,11 +24,12 @@ export async function getOrCreateInvoice(
   );
 
   // upsert evita race condition entre múltiplas requisições simultâneas
+  // periodData.periodEnd agora é UTC midnight, consistente com a busca
   return prisma.creditCardInvoice.upsert({
     where: {
       creditCardId_periodEnd: {
         creditCardId,
-        periodEnd: normalizedPeriodEnd,
+        periodEnd: periodData.periodEnd,
       },
     },
     update: {},

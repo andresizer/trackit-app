@@ -14,22 +14,28 @@ export interface InvoicePeriod {
   dueDate: Date;
 }
 
+function toUtcMidnight(date: Date): Date {
+  return new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+}
+
 export function getInvoicePeriod(
   closingDay: number,
   dueDay: number,
   referenceDate: Date = new Date()
 ): InvoicePeriod {
-  // Clamp closingDay to last day of month
-  const refMonth = startOfMonth(referenceDate);
+  // Normalize referenceDate to UTC midnight for consistent comparison
+  const refDate = toUtcMidnight(referenceDate);
+  const refMonth = startOfMonth(refDate);
   const lastDayOfRefMonth = endOfMonth(refMonth);
   const clampedClosingDay = Math.min(closingDay, lastDayOfRefMonth.getDate());
 
-  // Determine periodEnd: if referenceDate's day > closingDay, periodEnd is this month's closingDay
-  // Otherwise, periodEnd is last month's closingDay
+  // Determine periodEnd:
+  // If referenceDate is BEFORE or ON thisMonthClosingDate → this month's closing
+  // If referenceDate is AFTER thisMonthClosingDate → next month's closing (period already closed)
   const thisMonthClosingDate = setDate(refMonth, clampedClosingDay);
-  const periodEnd = isAfter(referenceDate, thisMonthClosingDate)
-    ? thisMonthClosingDate
-    : setDate(endOfMonth(subMonths(refMonth, 1)), Math.min(closingDay, endOfMonth(subMonths(refMonth, 1)).getDate()));
+  const periodEnd = isAfter(refDate, thisMonthClosingDate)
+    ? toUtcMidnight(setDate(startOfMonth(addMonths(refMonth, 1)), clampedClosingDay))
+    : toUtcMidnight(thisMonthClosingDate);
 
   // periodStart = closingDay+1 of previous month to periodEnd
   const previousMonthStart = subMonths(periodEnd, 1);
@@ -37,12 +43,12 @@ export function getInvoicePeriod(
     endOfMonth(previousMonthStart),
     Math.min(closingDay, endOfMonth(previousMonthStart).getDate())
   );
-  const periodStart = addDays(previousMonthClosing, 1);
+  const periodStart = toUtcMidnight(addDays(previousMonthClosing, 1));
 
   // dueDate = dueDay of the month following periodEnd
   const dueMonth = addMonths(periodEnd, 1);
   const clampedDueDay = Math.min(dueDay, endOfMonth(dueMonth).getDate());
-  const dueDate = setDate(dueMonth, clampedDueDay);
+  const dueDate = toUtcMidnight(setDate(dueMonth, clampedDueDay));
 
   return { periodStart, periodEnd, dueDate };
 }
