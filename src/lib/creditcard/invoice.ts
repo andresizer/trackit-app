@@ -8,20 +8,6 @@ export async function getOrCreateInvoice(
   periodEnd: Date,
   workspaceId: string
 ) {
-  // Find existing invoice for this period
-  const existing = await prisma.creditCardInvoice.findUnique({
-    where: {
-      creditCardId_periodEnd: {
-        creditCardId,
-        periodEnd: new Date(periodEnd.toISOString().split('T')[0]),
-      },
-    },
-  });
-
-  if (existing) {
-    return existing;
-  }
-
   // Load credit card to get closing/due days
   const creditCard = await prisma.bankAccount.findUnique({
     where: { id: creditCardId },
@@ -31,14 +17,23 @@ export async function getOrCreateInvoice(
     throw new Error('Credit card missing closingDay or dueDay');
   }
 
+  const normalizedPeriodEnd = new Date(periodEnd.toISOString().split('T')[0]);
   const periodData = getInvoicePeriod(
     creditCard.closingDay,
     creditCard.dueDay,
     periodEnd
   );
 
-  return prisma.creditCardInvoice.create({
-    data: {
+  // upsert evita race condition entre múltiplas requisições simultâneas
+  return prisma.creditCardInvoice.upsert({
+    where: {
+      creditCardId_periodEnd: {
+        creditCardId,
+        periodEnd: normalizedPeriodEnd,
+      },
+    },
+    update: {},
+    create: {
       workspaceId,
       creditCardId,
       periodStart: periodData.periodStart,

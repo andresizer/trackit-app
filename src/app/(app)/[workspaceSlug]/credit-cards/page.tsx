@@ -3,6 +3,7 @@ import { getWorkspaceBySlug } from '@/lib/workspace/permissions'
 import { getAllAccountBalances } from '@/lib/transactions/balance'
 import { getOrCreateInvoice, refreshInvoiceTotal } from '@/lib/creditcard/invoice'
 import { getInvoicePeriod } from '@/lib/creditcard/billing-cycle'
+import { prisma } from '@/lib/db/prisma'
 import Sidebar from '@/components/layout/Sidebar'
 import Link from 'next/link'
 import { Plus, Pencil, AlertCircle, ChevronRight } from 'lucide-react'
@@ -35,7 +36,6 @@ export default async function CreditCardsPage({ params }: CreditCardsPageProps) 
         const period = getInvoicePeriod(card.closingDay, card.dueDay, new Date())
         const invoice = await getOrCreateInvoice(card.id, period.periodEnd, workspace.id)
         await refreshInvoiceTotal(invoice.id)
-        const { prisma } = await import('@/lib/db/prisma')
         const updated = await prisma.creditCardInvoice.findUnique({ where: { id: invoice.id } })
         return { card, invoice: updated, isConfigured: true }
       } catch {
