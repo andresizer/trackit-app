@@ -21,10 +21,10 @@ export async function suggestCategory(
 ): Promise<CategorySuggestion | null> {
   const groq = getAIClient()
 
-  // Buscar categorias do workspace
+  // Buscar categorias do workspace (excluindo as ocultas)
   const categories = await prisma.category.findMany({
-    where: { workspaceId },
-    include: { children: true, parent: true },
+    where: { workspaceId, isHidden: false },
+    include: { children: { where: { isHidden: false } }, parent: true },
     orderBy: { name: 'asc' },
   })
 

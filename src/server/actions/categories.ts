@@ -156,13 +156,14 @@ export async function deleteCategory(categoryId: string, workspaceId: string) {
 }
 
 /**
- * Busca categorias com hierarquia (árvore).
+ * Busca categorias com hierarquia (árvore), excluindo as ocultas.
  */
 export async function getCategoriesTree(workspaceId: string) {
   const categories = await prisma.category.findMany({
-    where: { workspaceId, parentId: null },
+    where: { workspaceId, parentId: null, isHidden: false },
     include: {
       children: {
+        where: { isHidden: false },
         orderBy: { name: 'asc' },
       },
     },

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/auto-pay-invoices",
+      "schedule": "0 9 * * *"
+    }
+  ]
+}

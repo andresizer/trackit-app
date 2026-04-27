@@ -6,9 +6,8 @@ import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import CreditCardInvoiceCard from '@/components/accounts/CreditCardInvoiceCard'
-import { getOrCreateInvoice, refreshInvoiceTotal } from '@/lib/creditcard/invoice'
+import { getOrCreateInvoice, refreshInvoiceTotal, getAllPendingInvoices } from '@/lib/creditcard/invoice'
 import { getInvoicePeriod } from '@/lib/creditcard/billing-cycle'
-import { autoPayDueInvoices } from '@/server/actions/creditcard'
 
 interface AccountDetailPageProps {
   params: Promise<{ workspaceSlug: string; id: string }>
@@ -53,21 +52,7 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
     // Refresh invoice total
     await refreshInvoiceTotal(invoice.id)
 
-    // Trigger auto-pay if conditions are met
-    if (account.autoPayInvoice && !invoice.isPaid) {
-      const today = new Date()
-      if (invoice.dueDate <= today) {
-        try {
-          // This will attempt to pay due invoices
-          await autoPayDueInvoices(workspace.id)
-        } catch (error) {
-          // Log but don't fail the page load
-          console.error('Auto-pay failed:', error)
-        }
-      }
-    }
-
-    // Reload invoice after potential auto-pay
+    // Reload invoice after refresh
     const updatedInvoice = await prisma.creditCardInvoice.findUnique({
       where: { id: invoice.id },
     })
@@ -75,6 +60,12 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
     if (!updatedInvoice) {
       throw new Error('Invoice not found')
     }
+
+    // Fetch all pending invoices to show closed unpaid invoices
+    const allPendingInvoices = await getAllPendingInvoices(account.id)
+    const closedUnpaidInvoices = allPendingInvoices.filter(
+      (inv) => inv.periodEnd < updatedInvoice.periodEnd
+    )
 
     return (
       <div className="flex min-h-screen">
@@ -95,11 +86,31 @@ export default async function AccountDetailPage({ params }: AccountDetailPagePro
             </div>
           </div>
 
-          <CreditCardInvoiceCard
-            invoice={updatedInvoice}
-            creditCard={account}
-            workspaceId={workspace.id}
-          />
+          {closedUnpaidInvoices.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold">Faturas Fechadas Pendentes</h2>
+              <div className="space-y-3">
+                {closedUnpaidInvoices.map((inv) => (
+                  <CreditCardInvoiceCard
+                    key={inv.id}
+                    invoice={inv}
+                    creditCard={account}
+                    workspaceId={workspace.id}
+                    isClosed
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <h2 className="text-lg font-semibold">Fatura em Aberto</h2>
+            <CreditCardInvoiceCard
+              invoice={updatedInvoice}
+              creditCard={account}
+              workspaceId={workspace.id}
+            />
+          </div>
         </main>
       </div>
     )

@@ -9,7 +9,8 @@ import { createInvoicePayment } from '@/lib/transactions/create'
 
 export async function payInvoiceAction(
   invoiceId: string,
-  workspaceId: string
+  workspaceId: string,
+  partialAmount?: number
 ) {
   const session = await requireSession()
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
@@ -43,7 +44,14 @@ export async function payInvoiceAction(
     throw new Error('Fatura não encontrada após atualização')
   }
 
-  const amount = updated.totalAmount.toNumber()
+  const totalAmount = updated.totalAmount.toNumber()
+  const paidAmount = updated.paidAmount.toNumber()
+  const remainingAmount = totalAmount - paidAmount
+  const amount = partialAmount ? Math.min(partialAmount, remainingAmount) : totalAmount
+
+  if (amount <= 0) {
+    throw new Error('Valor inválido para pagamento')
+  }
 
   // Create debit and credit transactions, linking to invoice
   await createInvoicePayment(
@@ -53,7 +61,8 @@ export async function payInvoiceAction(
     amount,
     updated.dueDate,
     undefined,
-    invoiceId
+    invoiceId,
+    amount >= totalAmount // Only mark as paid if paying full amount
   )
 
   revalidatePath(`/[workspaceSlug]/accounts`, 'layout')
@@ -66,6 +75,10 @@ export async function autoPayDueInvoices(workspaceId: string) {
   const session = await requireSession()
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
+  return autoPayDueInvoicesInternal(workspaceId)
+}
+
+export async function autoPayDueInvoicesInternal(workspaceId: string) {
   const today = new Date()
 
   // Find all credit cards with autoPay enabled
@@ -95,7 +108,7 @@ export async function autoPayDueInvoices(workspaceId: string) {
   const results = []
   for (const invoice of invoices) {
     try {
-      const result = await payInvoiceAction(invoice.id, workspaceId)
+      await payInvoiceActionInternal(invoice.id, workspaceId)
       results.push({ invoiceId: invoice.id, success: true })
     } catch (error) {
       results.push({
@@ -107,4 +120,60 @@ export async function autoPayDueInvoices(workspaceId: string) {
   }
 
   return results
+}
+
+async function payInvoiceActionInternal(
+  invoiceId: string,
+  workspaceId: string,
+  partialAmount?: number
+) {
+  // Load invoice + credit card
+  const invoice = await prisma.creditCardInvoice.findUnique({
+    where: { id: invoiceId },
+    include: { creditCard: true },
+  })
+
+  if (!invoice) {
+    throw new Error('Fatura não encontrada')
+  }
+
+  if (invoice.isPaid) {
+    throw new Error('Fatura já foi paga')
+  }
+
+  const creditCard = invoice.creditCard
+  if (!creditCard.linkedCheckingAccountId) {
+    throw new Error('Cartão não está vinculado a uma conta corrente')
+  }
+
+  // Refresh total in case new transactions were added
+  await refreshInvoiceTotal(invoiceId)
+  const updated = await prisma.creditCardInvoice.findUnique({
+    where: { id: invoiceId },
+  })
+
+  if (!updated) {
+    throw new Error('Fatura não encontrada após atualização')
+  }
+
+  const totalAmount = updated.totalAmount.toNumber()
+  const paidAmount = updated.paidAmount.toNumber()
+  const remainingAmount = totalAmount - paidAmount
+  const amount = partialAmount ? Math.min(partialAmount, remainingAmount) : totalAmount
+
+  if (amount <= 0) {
+    throw new Error('Valor inválido para pagamento')
+  }
+
+  // Create debit and credit transactions, linking to invoice
+  await createInvoicePayment(
+    workspaceId,
+    creditCard.linkedCheckingAccountId,
+    creditCard.id,
+    amount,
+    updated.dueDate,
+    undefined,
+    invoiceId,
+    amount >= totalAmount // Only mark as paid if paying full amount
+  )
 }

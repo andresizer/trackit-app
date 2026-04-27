@@ -292,6 +292,7 @@ model Category {
   color       String?  @default("#6366f1")
   legacyCode  String? // A1, M7, etc. — para migração
   parentId    String? // null = raiz
+  isHidden    Boolean  @default(false)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -444,6 +445,7 @@ model CreditCardInvoice {
   periodEnd    DateTime
   dueDate      DateTime
   totalAmount  Decimal   @default(0) @db.Decimal(12, 2)
+  paidAmount   Decimal   @default(0) @db.Decimal(12, 2)
   isPaid       Boolean   @default(false)
   paidAt       DateTime?
   paymentTxId  String?   @unique

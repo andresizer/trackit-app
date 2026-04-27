@@ -94,7 +94,7 @@ const DEFAULT_CATEGORIES = [
       { name: 'Taxas bancárias', icon: '🏦', legacyCode: 'F4' },
       { name: 'Impostos', icon: '📝', legacyCode: 'F5' },
       { name: 'Seguros', icon: '🛡️', legacyCode: 'F6' },
-      { name: 'Pagamento de fatura', icon: '💳', legacyCode: 'F7' },
+      { name: 'Pagamento de fatura', icon: '💳', legacyCode: 'F7', isHidden: true },
     ],
   },
   {
@@ -147,6 +147,7 @@ export async function seedWorkspaceDefaults(workspaceId: string) {
               color: cat.color,
               legacyCode: child.legacyCode,
               parentId: parent.id,
+              isHidden: child.isHidden ?? false,
             },
           })
         )

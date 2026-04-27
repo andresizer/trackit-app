@@ -94,3 +94,13 @@ export async function refreshInvoiceTotal(invoiceId: string) {
     data: { totalAmount: newTotal },
   });
 }
+
+export async function getAllPendingInvoices(creditCardId: string) {
+  return prisma.creditCardInvoice.findMany({
+    where: {
+      creditCardId,
+      isPaid: false,
+    },
+    orderBy: { periodEnd: 'asc' },
+  });
+}

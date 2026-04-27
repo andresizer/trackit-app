@@ -118,7 +118,8 @@ export async function createInvoicePayment(
   amount: number,
   date: Date,
   paymentMethodId?: string,
-  invoiceId?: string
+  invoiceId?: string,
+  markAsPaid: boolean = true
 ) {
   const [debit, credit] = await prisma.$transaction([
     // Despesa na conta corrente
@@ -152,8 +153,13 @@ export async function createInvoicePayment(
           prisma.creditCardInvoice.update({
             where: { id: invoiceId },
             data: {
-              isPaid: true,
-              paidAt: new Date(),
+              paidAmount: {
+                increment: amount,
+              },
+              ...(markAsPaid && {
+                isPaid: true,
+                paidAt: new Date(),
+              }),
               paymentTxId: null, // Will be set after debit is created
             },
           }),
