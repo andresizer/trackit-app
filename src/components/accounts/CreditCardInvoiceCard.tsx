@@ -22,12 +22,10 @@ export default function CreditCardInvoiceCard({
   const [isPending, startTransition] = useTransition()
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [paymentAmount, setPaymentAmount] = useState<string>(
-    invoice.totalAmount.toNumber().toString()
-  )
+  const totalAmount = Number(invoice.totalAmount)
+  const paidAmount = Number(invoice.paidAmount)
 
-  const totalAmount = invoice.totalAmount.toNumber()
-  const paidAmount = invoice.paidAmount.toNumber()
+  const [paymentAmount, setPaymentAmount] = useState<string>(totalAmount.toString())
   const remainingAmount = Math.max(0, totalAmount - paidAmount)
   const paymentValue = Math.min(parseFloat(paymentAmount) || 0, remainingAmount)
   const progressPercent = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0

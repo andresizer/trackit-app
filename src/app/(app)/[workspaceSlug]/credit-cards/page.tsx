@@ -82,8 +82,8 @@ export default async function CreditCardsPage({ params }: CreditCardsPageProps) 
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {cardInvoices.map(({ card, invoice, isConfigured }) => {
-              const totalAmount = invoice?.totalAmount?.toNumber() ?? 0
-              const paidAmount = invoice?.paidAmount?.toNumber() ?? 0
+              const totalAmount = invoice ? Number(invoice.totalAmount) : 0
+              const paidAmount = invoice ? Number(invoice.paidAmount) : 0
               const remainingAmount = Math.max(0, totalAmount - paidAmount)
               const progressPercent = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0
 
