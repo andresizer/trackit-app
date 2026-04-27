@@ -20,8 +20,8 @@ const createAccountSchema = z
     icon: z.string().optional(),
     isCreditCard: z.boolean().default(false),
     linkedCheckingAccountId: z.string().optional(),
-    closingDay: z.number().int().min(1).max(28).optional(),
-    dueDay: z.number().int().min(1).max(28).optional(),
+    closingDay: z.number().int().min(1).max(31).optional(),
+    dueDay: z.number().int().min(1).max(31).optional(),
     autoPayInvoice: z.boolean().default(false),
   })
   .superRefine((data, ctx) => {
@@ -61,8 +61,8 @@ const updateAccountSchema = z
     initialBalance: z.number().optional(),
     isCreditCard: z.boolean().optional(),
     linkedCheckingAccountId: z.string().optional(),
-    closingDay: z.number().int().min(1).max(28).optional(),
-    dueDay: z.number().int().min(1).max(28).optional(),
+    closingDay: z.number().int().min(1).max(31).optional(),
+    dueDay: z.number().int().min(1).max(31).optional(),
     autoPayInvoice: z.boolean().optional(),
   })
   .superRefine((data, ctx) => {

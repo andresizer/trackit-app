@@ -15,7 +15,8 @@ export default async function AccountsPage({ params }: AccountsPageProps) {
   const { workspaceSlug } = await params
   const session = await requireSession()
   const workspace = await getWorkspaceBySlug(workspaceSlug, session.user.id)
-  const accounts = await getAllAccountBalances(workspace.id)
+  const allAccounts = await getAllAccountBalances(workspace.id)
+  const accounts = allAccounts.filter((acc) => !acc.isCreditCard)
 
   const formatCurrency = (v: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(v)

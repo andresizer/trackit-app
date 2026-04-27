@@ -181,7 +181,7 @@ export default function AccountForm({
               <input
                 type="number"
                 min="1"
-                max="28"
+                max="31"
                 value={closingDay}
                 onChange={(e) => setClosingDay(Number(e.target.value))}
                 required={isCreditCardType}
@@ -194,7 +194,7 @@ export default function AccountForm({
               <input
                 type="number"
                 min="1"
-                max="28"
+                max="31"
                 value={dueDay}
                 onChange={(e) => setDueDay(Number(e.target.value))}
                 required={isCreditCardType}
