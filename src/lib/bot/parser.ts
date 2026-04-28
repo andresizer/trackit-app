@@ -2,9 +2,9 @@
  * Intenções reconhecidas pelo bot.
  */
 export type BotIntent =
-  | { type: 'register_expense'; description: string; amount: number; date?: Date }
-  | { type: 'register_income'; description: string; amount: number; date?: Date }
-  | { type: 'register_batch'; lines: Array<{ description: string; amount: number; date?: Date }> }
+  | { type: 'register_expense'; description: string; amount: number; date?: Date; isRecurring?: boolean }
+  | { type: 'register_income'; description: string; amount: number; date?: Date; isRecurring?: boolean }
+  | { type: 'register_batch'; lines: Array<{ description: string; amount: number; date?: Date; isRecurring?: boolean }> }
   | { type: 'recent_transactions' }
   | { type: 'check_balance' }
   | { type: 'monthly_summary' }
@@ -16,6 +16,26 @@ export type BotIntent =
 const DAY_NAMES: Record<string, number> = {
   domingo: 0, segunda: 1, terca: 2, terça: 2,
   quarta: 3, quinta: 4, sexta: 5, sabado: 6, sábado: 6,
+}
+
+const RECURRING_KEYWORDS = [
+  'recorrente', 'recorrência', 'recorrencia', 'todo mês', 'todo mes', 'mensal',
+]
+
+/**
+ * Remove keywords de recorrência da string e retorna se era recorrente.
+ */
+function extractRecurring(text: string): { text: string; isRecurring: boolean } {
+  const lower = text.toLowerCase()
+  for (const kw of RECURRING_KEYWORDS) {
+    if (lower.endsWith(` ${kw}`)) {
+      return { text: text.slice(0, -(kw.length + 1)).trimEnd(), isRecurring: true }
+    }
+    if (lower === kw) {
+      return { text: '', isRecurring: true }
+    }
+  }
+  return { text, isRecurring: false }
 }
 
 /**
@@ -68,17 +88,21 @@ export function parseRelativeDate(token: string): Date | null {
 }
 
 /**
- * Tenta parsear uma linha como "descrição valor [data]" ou "valor descrição [data]".
+ * Tenta parsear uma linha como "descrição valor [data] [recorrente]" ou "valor descrição [data] [recorrente]".
  * Retorna null se não reconhecer.
  */
-function parseSingleLine(line: string): { description: string; amount: number; date?: Date } | null {
+function parseSingleLine(line: string): { description: string; amount: number; date?: Date; isRecurring?: boolean } | null {
   const trimmed = line.trim()
   if (!trimmed) return null
 
+  // Extrair keyword de recorrência primeiro
+  const { text: withoutRecurring, isRecurring } = extractRecurring(trimmed)
+  if (!withoutRecurring) return null
+
   // Verificar se o último token é uma data
-  const tokens = trimmed.split(/\s+/)
+  const tokens = withoutRecurring.split(/\s+/)
   let dateToken: Date | undefined
-  let withoutDate = trimmed
+  let withoutDate = withoutRecurring
 
   if (tokens.length > 2) {
     const lastToken = tokens[tokens.length - 1]
@@ -96,7 +120,7 @@ function parseSingleLine(line: string): { description: string; amount: number; d
   if (fwdMatch) {
     const amount = parseFloat(fwdMatch[2].replace(',', '.'))
     if (!isNaN(amount) && amount > 0) {
-      return { description: fwdMatch[1].trim(), amount, date: dateToken }
+      return { description: fwdMatch[1].trim(), amount, date: dateToken, isRecurring: isRecurring || undefined }
     }
   }
 
@@ -105,7 +129,7 @@ function parseSingleLine(line: string): { description: string; amount: number; d
   if (revMatch) {
     const amount = parseFloat(revMatch[1].replace(',', '.'))
     if (!isNaN(amount) && amount > 0) {
-      return { description: revMatch[2].trim(), amount, date: dateToken }
+      return { description: revMatch[2].trim(), amount, date: dateToken, isRecurring: isRecurring || undefined }
     }
   }
 
@@ -152,7 +176,7 @@ export function parseMessage(text: string): BotIntent {
   // Detecção de batch: múltiplas linhas
   const lines = text.split('\n').map((l) => l.trim()).filter(Boolean)
   if (lines.length >= 2) {
-    const parsed = lines.map(parseSingleLine).filter(Boolean) as Array<{ description: string; amount: number; date?: Date }>
+    const parsed = lines.map(parseSingleLine).filter(Boolean) as Array<{ description: string; amount: number; date?: Date; isRecurring?: boolean }>
     if (parsed.length >= 2) {
       return { type: 'register_batch', lines: parsed }
     }

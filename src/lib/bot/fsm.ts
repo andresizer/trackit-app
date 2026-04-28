@@ -9,6 +9,7 @@ export interface BatchItem {
   categoryName?: string
   date: string
   aiConfidence?: number
+  isRecurring?: boolean
 }
 
 /**
@@ -23,6 +24,7 @@ export interface BotContext {
   bankAccountId?: string
   aiConfidence?: number
   date?: string
+  isRecurring?: boolean
   batch?: BatchItem[]
 }
 

@@ -9,6 +9,7 @@ import {
   type BatchItem,
 } from './fsm'
 import { createTransaction } from '@/lib/transactions/create'
+import { createRecurringRule } from '@/lib/transactions/recurrence'
 import { getAllAccountBalances } from '@/lib/transactions/balance'
 import { generateMonthlySummary } from '@/lib/ai/summary'
 import { suggestCategory } from '@/lib/ai/categorize'
@@ -125,6 +126,7 @@ async function handleRegisterTransaction(
     categoryName: suggestion?.subcategoryName ?? suggestion?.categoryName,
     aiConfidence: suggestion?.confidence,
     date: intent.date?.toISOString(),
+    isRecurring: intent.isRecurring,
   })
 
   await handleAccountSelection(sessionId, chatId, workspaceId, sender)
@@ -134,7 +136,7 @@ async function handleBatchTransactions(
   sessionId: string,
   chatId: string,
   workspaceId: string,
-  lines: Array<{ description: string; amount: number; date?: Date }>,
+  lines: Array<{ description: string; amount: number; date?: Date; isRecurring?: boolean }>,
   sender: BotSender
 ) {
   await sender.sendMessage(chatId, `⏳ Analisando ${lines.length} transações...`)
@@ -153,6 +155,7 @@ async function handleBatchTransactions(
       categoryName: suggestion?.subcategoryName ?? suggestion?.categoryName,
       date: (line.date ?? new Date()).toISOString(),
       aiConfidence: suggestion?.confidence,
+      isRecurring: line.isRecurring,
     }
   })
 
@@ -211,9 +214,10 @@ async function showConfirmationMessage(
     let msg = `📋 *${context.batch.length} transações detectadas:*\n\n`
     context.batch.forEach((item, i) => {
       const emoji = item.type === 'INCOME' ? '💵' : '💸'
+      const recurringLabel = item.isRecurring ? ' 🔄' : ''
       const dateStr = formatDate(new Date(item.date))
       const cat = item.categoryName ? ` _(${item.categoryName})_` : ''
-      msg += `${i + 1}. ${emoji} ${item.description} — ${formatCurrency(item.amount)}${cat} • ${dateStr}\n`
+      msg += `${i + 1}. ${emoji} ${item.description} — ${formatCurrency(item.amount)}${cat} • ${dateStr}${recurringLabel}\n`
     })
     msg += `\n💰 *Total: ${formatCurrency(total)}*\n\nConfirmar? Responda *sim* ou *não*`
     await sender.sendMessage(chatId, msg)
@@ -221,12 +225,13 @@ async function showConfirmationMessage(
     const emoji = context.type === 'INCOME' ? '💵' : '💸'
     const typeLabel = context.type === 'INCOME' ? 'Receita' : 'Despesa'
     const dateLabel = context.date ? ` • ${formatDate(new Date(context.date))}` : ''
+    const recurringLabel = context.isRecurring ? '\n🔄 _Recorrência mensal_' : ''
     await sender.sendMessage(
       chatId,
       `${emoji} *${typeLabel}*\n\n` +
         `📝 ${context.description}\n` +
         `💰 ${formatCurrency(context.amount!)}\n` +
-        `🏷️ ${context.categoryName ?? 'Sem categoria'}${dateLabel}\n\n` +
+        `🏷️ ${context.categoryName ?? 'Sem categoria'}${dateLabel}${recurringLabel}\n\n` +
         `Confirmar? Responda *sim* ou *não*`
     )
   }
@@ -263,8 +268,19 @@ async function handleConfirmation(
 
   if (context.batch && context.batch.length > 0) {
     await Promise.all(
-      context.batch.map((item) =>
-        createTransaction({
+      context.batch.map(async (item) => {
+        let recurringRuleId: string | undefined
+        if (item.isRecurring) {
+          const rule = await createRecurringRule(workspaceId, new Date(item.date), {
+            type: item.type,
+            amount: item.amount,
+            description: item.description,
+            bankAccountId: context.bankAccountId!,
+            categoryId: item.categoryId,
+          })
+          recurringRuleId = rule.id
+        }
+        return createTransaction({
           workspaceId,
           type: item.type,
           amount: item.amount,
@@ -275,32 +291,52 @@ async function handleConfirmation(
           aiCategorized: !!item.categoryId,
           aiConfidence: item.aiConfidence,
           createdViaBot: true,
+          isRecurring: item.isRecurring,
+          recurringRuleId,
         })
-      )
+      })
     )
 
     const total = context.batch.reduce((sum, item) => sum + item.amount, 0)
+    const recurringCount = context.batch.filter((i) => i.isRecurring).length
+    const recurringNote = recurringCount > 0 ? `\n🔄 ${recurringCount} recorrente(s) configurada(s)` : ''
     await sender.sendMessage(
       chatId,
-      `✅ *${context.batch.length} transações registradas!*\nTotal: ${formatCurrency(total)}`
+      `✅ *${context.batch.length} transações registradas!*\nTotal: ${formatCurrency(total)}${recurringNote}`
     )
   } else if (context.amount && context.description) {
+    let recurringRuleId: string | undefined
+    const txDate = context.date ? new Date(context.date) : new Date()
+    if (context.isRecurring) {
+      const rule = await createRecurringRule(workspaceId, txDate, {
+        type: context.type ?? 'EXPENSE',
+        amount: context.amount,
+        description: context.description,
+        bankAccountId: context.bankAccountId!,
+        categoryId: context.categoryId,
+      })
+      recurringRuleId = rule.id
+    }
+
     await createTransaction({
       workspaceId,
       type: context.type === 'INCOME' ? 'INCOME' : 'EXPENSE',
       amount: context.amount,
       description: context.description,
-      date: context.date ? new Date(context.date) : new Date(),
+      date: txDate,
       bankAccountId: context.bankAccountId,
       categoryId: context.categoryId,
       aiCategorized: !!context.categoryId,
       aiConfidence: context.aiConfidence,
       createdViaBot: true,
+      isRecurring: context.isRecurring,
+      recurringRuleId,
     })
 
+    const recurringNote = context.isRecurring ? '\n🔄 Recorrência mensal configurada' : ''
     await sender.sendMessage(
       chatId,
-      `✅ Registrado!\n${context.description}: ${formatCurrency(context.amount)}`
+      `✅ Registrado!\n${context.description}: ${formatCurrency(context.amount)}${recurringNote}`
     )
   }
 
@@ -372,6 +408,7 @@ async function handleHelp(chatId: string, sender: BotSender) {
       '💵 `salário 5000` — registrar receita\n' +
       '📋 Múltiplas linhas — registrar várias transações\n' +
       '📅 `ifood 42,50 ontem` — com data\n' +
+      '🔄 `netflix 55,90 recorrente` — mensal\n' +
       '💰 `saldo` — ver saldos\n' +
       '📊 `resumo` — resumo do mês\n' +
       '🕐 `/transacoes` — últimas transações\n' +
