@@ -77,7 +77,7 @@ export async function POST(req: NextRequest) {
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
       const response = await groq.chat.completions.create({
-        model: getModel(),
+        model: process.env.GROQ_CHAT_MODEL ?? 'llama-3.3-70b-versatile',
         messages: currentMessages,
         tools: CHAT_TOOLS as any,
         tool_choice: 'auto',
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
             controller.close()
           } else {
             const stream = await groq.chat.completions.create({
-              model: getModel(),
+              model: process.env.GROQ_CHAT_MODEL ?? 'llama-3.3-70b-versatile',
               messages: currentMessages as any,
               stream: true,
             })

@@ -6,6 +6,7 @@ interface AccountInfo {
   id: string
   name: string
   currentBalance: number
+  isCreditCard?: boolean
 }
 
 interface CategoryInfo {
@@ -19,6 +20,17 @@ interface ChatPromptParams {
   userRole: string
   accounts: AccountInfo[]
   categories: CategoryInfo[]
+}
+
+function buildCategoriesRef(
+  categories: CategoryInfo[],
+  result: string[] = []
+): string {
+  for (const cat of categories) {
+    result.push(`${cat.id} → ${cat.name}`)
+    if (cat.children?.length) buildCategoriesRef(cat.children, result)
+  }
+  return result.join('\n')
 }
 
 function formatCategoriesTree(
@@ -51,7 +63,13 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
     .map((acc) => `- ${acc.name}: R$ ${acc.currentBalance.toFixed(2)}`)
     .join('\n')
 
+  const accountsRef = accounts
+    .map((acc) => `${acc.id} → ${acc.name}`)
+    .join('\n')
+
   const categoriesList = formatCategoriesTree(categories)
+
+  const categoriesRef = buildCategoriesRef(categories)
 
   const todayISO = format(new Date(), 'yyyy-MM-dd')
 
@@ -83,8 +101,8 @@ ${categoriesList || 'Nenhuma categoria cadastrada'}
 - Ao criar transações, confirme os detalhes (valor, data, conta, categoria) com o usuário antes de executar
 - Se uma tool retornar erro, explique ao usuário de forma simples e amigável
 - Formate valores monetários como R$ XX,XX
-- Para ações que exigem IDs (criar transação, editar, deletar), use as tools list_accounts e list_categories para obter os IDs corretos — nunca invente IDs
-- Nunca exiba IDs técnicos (como UUIDs) ao usuário — referencie sempre pelo nome da conta, categoria ou descrição da transação
+- Para criar/editar transações, use os IDs da seção REFERÊNCIA INTERNA abaixo — nunca invente IDs
+- Nunca exiba IDs técnicos (UUIDs) ao usuário — use sempre nomes de contas, categorias ou descrição da transação
 - Se o usuário está em modo VIEWER, recuse educadamente qualquer ação de criação/edição/deleção
 
 == CAPACIDADES DISPONÍVEIS ==
@@ -106,6 +124,12 @@ ${userRole !== 'VIEWER'
 
 == WIKI DO SISTEMA ==
 ${claudeContent}
+
+== REFERÊNCIA INTERNA DE IDs (uso exclusivo das tools — nunca exibir ao usuário) ==
+CONTAS:
+${accountsRef || 'nenhuma'}
+CATEGORIAS:
+${categoriesRef || 'nenhuma'}
 
 == FIM DO CONTEXTO ==`
 }
