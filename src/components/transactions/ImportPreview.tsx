@@ -1,19 +1,21 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { AlertCircle, ChevronLeft } from 'lucide-react'
+import { AlertCircle, ChevronLeft, Plus } from 'lucide-react'
+import InlineCategoryCreate from './InlineCategoryCreate'
 import type { ParseResult, ParsedRow } from '@/lib/transactions/parsers'
 import type { ImportTransaction, CandidateTransaction } from '@/server/actions/import'
 import { fetchDuplicateCandidates } from '@/server/actions/import'
 
 interface Account { id: string; name: string }
-interface Category { id: string; name: string; children?: { id: string; name: string }[] }
+interface Category { id: string; name: string; icon?: string | null; children?: { id: string; name: string; icon?: string | null }[] }
 
 interface ImportPreviewProps {
   parsed: ParseResult
   accounts: Account[]
   categories: Category[]
   workspaceSlug: string
+  workspaceId: string
   onConfirm: (transactions: ImportTransaction[], replaceIds: string[]) => void
   onBack: () => void
   isSubmitting: boolean
@@ -92,20 +94,24 @@ export default function ImportPreview({
   accounts,
   categories,
   workspaceSlug,
+  workspaceId,
   onConfirm,
   onBack,
   isSubmitting,
 }: ImportPreviewProps) {
+  const [localCategories, setLocalCategories] = useState<Category[]>(categories)
+  const [creatingForCategoryName, setCreatingForCategoryName] = useState<string | null>(null)
+
   const allCategories = useMemo(() => {
     const flat: { id: string; name: string; label: string }[] = []
-    for (const cat of categories) {
+    for (const cat of localCategories) {
       flat.push({ id: cat.id, name: cat.name, label: cat.name })
       for (const child of cat.children ?? []) {
         flat.push({ id: child.id, name: child.name, label: `${cat.name} > ${child.name}` })
       }
     }
     return flat
-  }, [categories])
+  }, [localCategories])
 
   // For OFX: rows have no accountName — need a global account selector
   const needsGlobalAccount = parsed.format === 'ofx' || parsed.format === 'nubank-csv'
@@ -335,24 +341,57 @@ export default function ImportPreview({
             <p className="text-sm font-medium">Categorias não encontradas — mapeie manualmente</p>
           </div>
           {unresolvedCategories.map((name) => (
-            <div key={name} className="flex items-center gap-3 text-sm">
-              <span className="font-mono px-2 py-0.5 bg-muted rounded text-xs">{name}</span>
-              <span className="text-muted-foreground">→</span>
-              <select
-                value={categoryMapping[name] ?? ''}
-                onChange={(e) => {
-                  setCategoryMapping((prev) => ({
-                    ...prev,
-                    [name]: e.target.value,
-                  }))
-                }}
-                className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm flex-1 max-w-xs"
-              >
-                <option value="">Sem categoria</option>
-                {allCategories.map((c) => (
-                  <option key={c.id} value={c.id}>{c.label}</option>
-                ))}
-              </select>
+            <div key={name} className="space-y-2">
+              <div className="flex items-center gap-3 text-sm">
+                <span className="font-mono px-2 py-0.5 bg-muted rounded text-xs">{name}</span>
+                <span className="text-muted-foreground">→</span>
+                <select
+                  value={categoryMapping[name] ?? ''}
+                  onChange={(e) => {
+                    setCategoryMapping((prev) => ({
+                      ...prev,
+                      [name]: e.target.value,
+                    }))
+                  }}
+                  className="rounded-lg border border-border bg-background px-3 py-1.5 text-sm flex-1 max-w-xs"
+                >
+                  <option value="">Sem categoria</option>
+                  {allCategories.map((c) => (
+                    <option key={c.id} value={c.id}>{c.label}</option>
+                  ))}
+                </select>
+                {creatingForCategoryName !== name && (
+                  <button
+                    type="button"
+                    onClick={() => setCreatingForCategoryName(name)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-border text-xs text-muted-foreground hover:bg-muted transition-colors whitespace-nowrap"
+                  >
+                    <Plus className="w-3 h-3" /> Criar
+                  </button>
+                )}
+              </div>
+              {creatingForCategoryName === name && (
+                <InlineCategoryCreate
+                  workspaceId={workspaceId}
+                  categories={localCategories.map((c) => ({ id: c.id, name: c.name, icon: c.icon ?? null }))}
+                  onCreated={(category) => {
+                    if (category.parentId) {
+                      setLocalCategories((prev) =>
+                        prev.map((c) =>
+                          c.id === category.parentId
+                            ? { ...c, children: [...(c.children ?? []), { id: category.id, name: category.name, icon: category.icon }] }
+                            : c
+                        )
+                      )
+                    } else {
+                      setLocalCategories((prev) => [...prev, { ...category, children: [] }])
+                    }
+                    setCategoryMapping((prev) => ({ ...prev, [name]: category.id }))
+                    setCreatingForCategoryName(null)
+                  }}
+                  onCancel={() => setCreatingForCategoryName(null)}
+                />
+              )}
             </div>
           ))}
         </div>

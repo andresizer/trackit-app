@@ -21,6 +21,7 @@ interface Category {
 
 interface ImportFlowProps {
   workspaceSlug: string
+  workspaceId: string
   accounts: Account[]
   categories: Category[]
 }
@@ -29,6 +30,7 @@ type Step = 'upload' | 'preview' | 'result'
 
 export default function ImportFlow({
   workspaceSlug,
+  workspaceId,
   accounts,
   categories,
 }: ImportFlowProps) {
@@ -68,6 +70,7 @@ export default function ImportFlow({
           accounts={accounts}
           categories={categories}
           workspaceSlug={workspaceSlug}
+          workspaceId={workspaceId}
           onConfirm={handleConfirm}
           onBack={handleReset}
           isSubmitting={isSubmitting}

@@ -39,6 +39,7 @@ export default async function ImportPage({ params }: ImportPageProps) {
           </div>
           <ImportFlow
             workspaceSlug={workspaceSlug}
+            workspaceId={workspace.id}
             accounts={accounts}
             categories={categories as any[]}
           />
