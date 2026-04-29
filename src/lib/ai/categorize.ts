@@ -1,16 +1,19 @@
+import { z } from 'zod'
 import { getAIClient, getModel } from './client'
 import { prisma } from '@/lib/db/prisma'
 
-export interface CategorySuggestion {
-  categoryId: string
-  categoryName: string
-  subcategoryId?: string
-  subcategoryName?: string
-  paymentMethodId?: string
-  paymentMethodName?: string
-  confidence: number
-  transactionType?: 'INCOME' | 'EXPENSE'
-}
+const CategorySuggestionSchema = z.object({
+  categoryId: z.string(),
+  categoryName: z.string(),
+  subcategoryId: z.string().nullable().optional(),
+  subcategoryName: z.string().nullable().optional(),
+  paymentMethodId: z.string().nullable().optional(),
+  paymentMethodName: z.string().nullable().optional(),
+  confidence: z.number().min(0).max(1),
+  transactionType: z.enum(['INCOME', 'EXPENSE']).optional(),
+})
+
+export type CategorySuggestion = z.infer<typeof CategorySuggestionSchema>
 
 /**
  * Sugere categoria para uma transação com base na descrição
@@ -104,10 +107,11 @@ Responda com JSON no formato:
     const text = chatCompletion.choices[0]?.message?.content
     if (!text) return null
 
-    const result = JSON.parse(text) as CategorySuggestion
+    const parsed = JSON.parse(text)
+    const result = CategorySuggestionSchema.parse(parsed)
     return result
-  } catch {
-    console.error('Erro ao parsear resposta da IA para categorização')
+  } catch (err) {
+    console.error('Erro ao parsear resposta da IA para categorização:', err)
     return null
   }
 }

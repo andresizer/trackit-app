@@ -1,11 +1,16 @@
+import { z } from 'zod'
 import { getAIClient, getModel } from './client'
 import { prisma } from '@/lib/db/prisma'
 
-export interface RecurrenceDetection {
-  description: string
-  confidence: number
-  matchingTransactionIds: string[]
-}
+const RecurrenceDetectionSchema = z.object({
+  description: z.string(),
+  confidence: z.number().min(0).max(1),
+  matchingTransactionIds: z.array(z.string()),
+})
+
+const RecurrenceDetectionArraySchema = z.array(RecurrenceDetectionSchema)
+
+export type RecurrenceDetection = z.infer<typeof RecurrenceDetectionSchema>
 
 /**
  * Analisa transações recentes e detecta padrões de recorrência.
@@ -69,9 +74,10 @@ Se não encontrar padrões, retorne [].`,
   try {
     const text = chatCompletion.choices[0]?.message?.content
     if (!text) return []
-    return JSON.parse(text) as RecurrenceDetection[]
-  } catch {
-    console.error('Erro ao parsear resposta da IA para detecção de recorrência')
+    const parsed = JSON.parse(text)
+    return RecurrenceDetectionArraySchema.parse(parsed)
+  } catch (err) {
+    console.error('Erro ao parsear resposta da IA para detecção de recorrência:', err)
     return []
   }
 }
