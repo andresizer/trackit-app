@@ -61,6 +61,9 @@ export default function CreditCardInvoiceCard({
       try {
         await payInvoiceAction(invoice.id, workspaceId, amount)
         setSuccess(true)
+        if (amount >= remainingAmount) {
+          setIsPaidState(true)
+        }
         setPaymentAmount(Math.max(0, remainingAmount - amount).toString())
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Erro ao pagar fatura')
@@ -176,18 +179,15 @@ export default function CreditCardInvoiceCard({
                   {isPaidState ? 'Paga' : 'Em aberto'}
                 </button>
               ) : (
-                <button
-                  onClick={handleTogglePaid}
-                  disabled={isPending}
-                  title={isPaidState ? 'Marcar como não paga' : 'Marcar como paga'}
-                  className={`inline-flex px-3 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity disabled:opacity-50 ${
+                <span
+                  className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
                     isPaidState
                       ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
                       : 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200'
                   }`}
                 >
                   {isPaidState ? 'Paga' : 'Em aberto'}
-                </button>
+                </span>
               )}
             </div>
           </div>
@@ -290,7 +290,7 @@ export default function CreditCardInvoiceCard({
         </div>
       )}
 
-      {!isPaidState && remainingAmount > 0 && !isClosed && (
+      {!isPaidState && remainingAmount > 0 && (
         <div className="space-y-3 pt-4 border-t">
           <div>
             <label className="text-sm font-medium block mb-2">
