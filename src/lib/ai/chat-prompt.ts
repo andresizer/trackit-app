@@ -27,7 +27,7 @@ function formatCategoriesTree(
 ): string {
   return categories
     .map((cat) => {
-      let result = `${indent}- ${cat.name} (id: ${cat.id})`
+      let result = `${indent}- ${cat.name}`
       if (cat.children && cat.children.length > 0) {
         result += '\n' + formatCategoriesTree(cat.children, indent + '  ')
       }
@@ -48,7 +48,7 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
   }
 
   const accountsList = accounts
-    .map((acc) => `- ${acc.name}: R$ ${acc.currentBalance.toFixed(2)} (id: ${acc.id})`)
+    .map((acc) => `- ${acc.name}: R$ ${acc.currentBalance.toFixed(2)}`)
     .join('\n')
 
   const categoriesList = formatCategoriesTree(categories)
@@ -58,11 +58,10 @@ export function buildChatSystemPrompt(params: ChatPromptParams): string {
   const permissions =
     userRole === 'VIEWER'
       ? 'Você está em modo VISUALIZAÇÃO. Você só pode consultar dados. Não pode criar, editar ou deletar transações, contas ou categorias.'
-      : `Seu papel no workspace é ${userRole}. Você tem permissões de ${
-          userRole === 'OWNER' || userRole === 'ADMIN'
-            ? 'gerenciamento completo'
-            : 'edição'
-        }.`
+      : `Seu papel no workspace é ${userRole}. Você tem permissões de ${userRole === 'OWNER' || userRole === 'ADMIN'
+        ? 'gerenciamento completo'
+        : 'edição'
+      }.`
 
   return `Você é um assistente financeiro inteligente para o TrackIt. Responda SEMPRE em português brasileiro.
 
@@ -84,7 +83,8 @@ ${categoriesList || 'Nenhuma categoria cadastrada'}
 - Ao criar transações, confirme os detalhes (valor, data, conta, categoria) com o usuário antes de executar
 - Se uma tool retornar erro, explique ao usuário de forma simples e amigável
 - Formate valores monetários como R$ XX,XX
-- Use sempre os IDs de contas e categorias listados acima — nunca invente IDs
+- Para ações que exigem IDs (criar transação, editar, deletar), use as tools list_accounts e list_categories para obter os IDs corretos — nunca invente IDs
+- Nunca exiba IDs técnicos (como UUIDs) ao usuário — referencie sempre pelo nome da conta, categoria ou descrição da transação
 - Se o usuário está em modo VIEWER, recuse educadamente qualquer ação de criação/edição/deleção
 
 == CAPACIDADES DISPONÍVEIS ==
@@ -95,15 +95,14 @@ Você pode:
 - Consultar dados do dashboard e patrimônio total
 - Gerar resumos mensais de receitas, despesas e gastos por categoria
 - Detectar anomalias financeiras (gastos altos, orçamentos estourados, parcelas vencendo)
-${
-  userRole !== 'VIEWER'
-    ? `- Criar transações de receita ou despesa
+${userRole !== 'VIEWER'
+      ? `- Criar transações de receita ou despesa
 - Editar transações existentes
 - Deletar transações (com confirmação)
 - Criar novas contas bancárias
 - Criar novas categorias`
-    : ''
-}
+      : ''
+    }
 
 == WIKI DO SISTEMA ==
 ${claudeContent}
