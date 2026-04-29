@@ -67,19 +67,21 @@ export async function POST(req: NextRequest) {
 
     // 6. Tool-calling loop (máx 5 iterações)
     const groq = getAIClient()
-    const systemMessage: ChatMessage = { role: 'assistant', content: systemPrompt }
 
-    let currentMessages: ChatMessage[] = [systemMessage, ...messages]
+    let currentMessages: any[] = [
+      { role: 'system', content: systemPrompt },
+      ...messages,
+    ]
     const MAX_ITERATIONS = 5
     let finalResponse = ''
 
     for (let i = 0; i < MAX_ITERATIONS; i++) {
       const response = await groq.chat.completions.create({
         model: getModel(),
-        messages: currentMessages as any,
+        messages: currentMessages,
         tools: CHAT_TOOLS as any,
         tool_choice: 'auto',
-        temperature: 0.7,
+        temperature: 0.3,
       })
 
       const message = response.choices[0]?.message
@@ -92,10 +94,8 @@ export async function POST(req: NextRequest) {
         break
       }
 
-      currentMessages.push({
-        role: 'assistant',
-        content: message.content || '',
-      })
+      // Incluir tool_calls no histórico — obrigatório para o Groq validar os resultados seguintes
+      currentMessages.push(message)
 
       for (const toolCall of message.tool_calls) {
         const result = await executeTool(
