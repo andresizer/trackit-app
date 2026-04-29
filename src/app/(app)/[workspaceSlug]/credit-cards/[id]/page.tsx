@@ -1,3 +1,5 @@
+'use server'
+
 import { requireSession } from '@/lib/auth/session'
 import { getWorkspaceBySlug } from '@/lib/workspace/permissions'
 import { prisma } from '@/lib/db/prisma'
@@ -6,6 +8,7 @@ import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import CreditCardInvoiceCard from '@/components/accounts/CreditCardInvoiceCard'
+import PaidInvoiceRow from '@/components/accounts/PaidInvoiceRow'
 import {
   getOrCreateInvoice,
   refreshInvoiceTotal,
@@ -61,12 +64,18 @@ export default async function CreditCardDetailPage({ params }: CreditCardDetailP
       (inv) => inv.periodEnd < updatedInvoice.periodEnd
     )
 
-    // Busca transações das faturas fechadas não pagas
-    const closedInvoiceTransactions = await Promise.all(
-      closedUnpaidInvoices.map((inv) =>
-        getInvoiceTransactions(account.id, inv.periodStart, inv.periodEnd)
-      )
-    )
+    const [closedInvoiceTransactions, paidInvoiceTransactions] = await Promise.all([
+      Promise.all(
+        closedUnpaidInvoices.map((inv) =>
+          getInvoiceTransactions(account.id, inv.periodStart, inv.periodEnd)
+        )
+      ),
+      Promise.all(
+        paidInvoices.map((inv) =>
+          getInvoiceTransactions(account.id, inv.periodStart, inv.periodEnd)
+        )
+      ),
+    ])
 
     return (
       <div className="flex min-h-screen">
@@ -119,8 +128,13 @@ export default async function CreditCardDetailPage({ params }: CreditCardDetailP
             <div className="space-y-3">
               <h2 className="text-lg font-semibold">Histórico de Faturas</h2>
               <div className="space-y-2">
-                {paidInvoices.map((inv) => (
-                  <PaidInvoiceRow key={inv.id} invoice={inv} />
+                {paidInvoices.map((inv, idx) => (
+                  <PaidInvoiceRow
+                    key={inv.id}
+                    invoice={inv}
+                    transactions={paidInvoiceTransactions[idx]}
+                    workspaceId={workspace.id}
+                  />
                 ))}
               </div>
             </div>
@@ -157,28 +171,3 @@ export default async function CreditCardDetailPage({ params }: CreditCardDetailP
   }
 }
 
-function PaidInvoiceRow({ invoice }: { invoice: { periodStart: Date; periodEnd: Date; dueDate: Date; totalAmount: unknown; paidAt: Date | null } }) {
-  const fmt = (d: Date) =>
-    d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-  const fmtCurrency = (v: unknown) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v))
-
-  return (
-    <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-card">
-      <div>
-        <p className="text-sm font-medium">
-          {fmt(invoice.periodStart)} → {fmt(invoice.periodEnd)}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Venc. {fmt(invoice.dueDate)}{invoice.paidAt ? ` · Paga em ${fmt(invoice.paidAt)}` : ''}
-        </p>
-      </div>
-      <div className="flex items-center gap-2">
-        <span className="font-semibold">{fmtCurrency(invoice.totalAmount)}</span>
-        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200">
-          Paga
-        </span>
-      </div>
-    </div>
-  )
-}

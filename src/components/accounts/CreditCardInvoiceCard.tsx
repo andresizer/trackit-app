@@ -176,15 +176,18 @@ export default function CreditCardInvoiceCard({
                   {isPaidState ? 'Paga' : 'Em aberto'}
                 </button>
               ) : (
-                <div
-                  className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${
+                <button
+                  onClick={handleTogglePaid}
+                  disabled={isPending}
+                  title={isPaidState ? 'Marcar como não paga' : 'Marcar como paga'}
+                  className={`inline-flex px-3 py-1 rounded-full text-xs font-medium cursor-pointer hover:opacity-80 transition-opacity disabled:opacity-50 ${
                     isPaidState
                       ? 'bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200'
                       : 'bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200'
                   }`}
                 >
                   {isPaidState ? 'Paga' : 'Em aberto'}
-                </div>
+                </button>
               )}
             </div>
           </div>
