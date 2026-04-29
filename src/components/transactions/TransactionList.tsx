@@ -1,6 +1,6 @@
 'use client'
 
-import { format, isSameDay } from 'date-fns'
+import { format, isSameDay, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Trash2, Loader2, Filter } from 'lucide-react'
 import { useState, useTransition, useMemo } from 'react'
@@ -28,6 +28,11 @@ interface TransactionListProps {
 }
 
 type GroupBy = 'none' | 'date' | 'category' | 'type' | 'account'
+
+const parseLocalDate = (date: string | Date) => {
+  const str = typeof date === 'string' ? date : date.toISOString()
+  return parseISO(str.slice(0, 10))
+}
 
 export default function TransactionList({ transactions, onDelete, workspaceId }: TransactionListProps) {
   const [isPending, startTransition] = useTransition()
@@ -78,7 +83,7 @@ export default function TransactionList({ transactions, onDelete, workspaceId }:
     transactions.forEach(tx => {
       let key = 'Outros'
       if (groupBy === 'date') {
-        key = format(new Date(tx.date), "eeee, dd 'de' MMMM", { locale: ptBR })
+        key = format(parseLocalDate(tx.date), "eeee, dd 'de' MMMM", { locale: ptBR })
       } else if (groupBy === 'category') {
         key = tx.category?.name || 'Sem Categoria'
       } else if (groupBy === 'type') {
@@ -187,7 +192,7 @@ export default function TransactionList({ transactions, onDelete, workspaceId }:
                         </p>
                         {groupBy !== 'date' && (
                           <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {format(new Date(tx.date), 'dd MMM', { locale: ptBR })}
+                            {format(parseLocalDate(tx.date), 'dd MMM', { locale: ptBR })}
                           </p>
                         )}
                       </div>
