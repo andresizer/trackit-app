@@ -4,6 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import Sidebar from '@/components/layout/Sidebar'
 import TransactionForm from '@/components/transactions/TransactionForm'
 import { notFound } from 'next/navigation'
+import { BackButton } from '@/components/ui/back-button'
 
 interface EditTransactionPageProps {
   params: Promise<{ workspaceSlug: string; id: string }>
@@ -54,9 +55,12 @@ export default async function EditTransactionPage({ params }: EditTransactionPag
       <Sidebar workspaceSlug={workspaceSlug} workspaceName={workspace.name} />
       <main className="flex-1 lg:ml-64 p-6 lg:p-8">
         <div className="max-w-lg mx-auto space-y-6">
-          <div>
-            <h1 className="text-2xl font-bold">Editar Transação</h1>
-            <p className="text-muted-foreground text-sm mt-1">Modifique os dados da sua transação</p>
+          <div className="flex items-center gap-3">
+            <BackButton />
+            <div>
+              <h1 className="text-2xl font-bold">Editar Transação</h1>
+              <p className="text-muted-foreground text-sm mt-1">Modifique os dados da sua transação</p>
+            </div>
           </div>
           <div className="glass-card p-6">
             <TransactionForm

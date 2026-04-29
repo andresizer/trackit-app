@@ -3,6 +3,7 @@ import { getWorkspaceBySlug } from '@/lib/workspace/permissions'
 import { prisma } from '@/lib/db/prisma'
 import Sidebar from '@/components/layout/Sidebar'
 import { notFound } from 'next/navigation'
+import { BackButton } from '@/components/ui/back-button'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 
@@ -35,7 +36,10 @@ export default async function TransactionDetailPage({ params }: TransactionDetai
       <Sidebar workspaceSlug={workspaceSlug} workspaceName={workspace.name} />
       <main className="flex-1 lg:ml-64 p-6 lg:p-8">
         <div className="max-w-lg mx-auto space-y-6">
-          <h1 className="text-2xl font-bold">Detalhes da Transação</h1>
+          <div className="flex items-center gap-3">
+            <BackButton />
+            <h1 className="text-2xl font-bold">Detalhes da Transação</h1>
+          </div>
 
           <div className="glass-card p-6 space-y-4">
             <div className="text-center space-y-2">
