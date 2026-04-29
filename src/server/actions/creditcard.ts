@@ -68,6 +68,8 @@ export async function payInvoiceAction(
   revalidatePath(`/[workspaceSlug]/credit-cards`, 'layout')
   revalidatePath(`/[workspaceSlug]/credit-cards/${creditCard.id}`, 'page')
   revalidatePath(`/[workspaceSlug]/transactions`, 'layout')
+  revalidatePath(`/[workspaceSlug]/accounts`, 'layout')
+  revalidatePath(`/[workspaceSlug]/dashboard`, 'layout')
 
   return { success: true }
 }
