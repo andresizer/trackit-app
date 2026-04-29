@@ -219,6 +219,7 @@ model BankAccount {
   closingDay               Int?        // dia de corte (1–28)
   dueDay                   Int?        // dia de vencimento (1–28)
   autoPayInvoice           Boolean     @default(false)
+  creditLimit              Decimal?    @db.Decimal(12, 2)
 
   createdAt      DateTime    @default(now())
   updatedAt      DateTime    @updatedAt

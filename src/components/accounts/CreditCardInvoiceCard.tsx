@@ -1,16 +1,19 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import { BankAccount, CreditCardInvoice } from '@prisma/client'
+import { BankAccount, CreditCardInvoice, Transaction, Category } from '@prisma/client'
 import { payInvoiceAction, deleteInvoiceAction, toggleInvoicePaidAction, updateInvoiceDueDateAction } from '@/server/actions/creditcard'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Trash2 } from 'lucide-react'
+import { Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+
+type TransactionWithCategory = Transaction & { category: Category | null }
 
 interface CreditCardInvoiceCardProps {
   invoice: CreditCardInvoice
   creditCard: BankAccount
   workspaceId: string
+  transactions?: TransactionWithCategory[]
   isClosed?: boolean
 }
 
@@ -18,6 +21,7 @@ export default function CreditCardInvoiceCard({
   invoice,
   creditCard,
   workspaceId,
+  transactions = [],
   isClosed = false,
 }: CreditCardInvoiceCardProps) {
   const [isPending, startTransition] = useTransition()
@@ -27,14 +31,17 @@ export default function CreditCardInvoiceCard({
   const [showDueDateEdit, setShowDueDateEdit] = useState(false)
   const [newDueDate, setNewDueDate] = useState(format(invoice.dueDate, 'yyyy-MM-dd'))
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [showTransactions, setShowTransactions] = useState(false)
 
   const totalAmount = Number(invoice.totalAmount)
   const paidAmount = Number(invoice.paidAmount)
+  const creditLimit = creditCard.creditLimit ? Number(creditCard.creditLimit) : null
 
   const [paymentAmount, setPaymentAmount] = useState<string>(totalAmount.toString())
   const remainingAmount = Math.max(0, totalAmount - paidAmount)
-  const paymentValue = Math.min(parseFloat(paymentAmount) || 0, remainingAmount)
   const progressPercent = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0
+  const utilizationPercent = creditLimit && creditLimit > 0 ? Math.min((totalAmount / creditLimit) * 100, 100) : null
+  const availableCredit = creditLimit !== null ? Math.max(0, creditLimit - totalAmount) : null
 
   const handlePayInvoice = () => {
     setError(null)
@@ -110,17 +117,13 @@ export default function CreditCardInvoiceCard({
           setError(err instanceof Error ? err.message : 'Erro ao atualizar data')
         }
       })
-    } catch (err) {
+    } catch {
       setError('Data inválida')
     }
   }
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value)
-  }
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
 
   const periodStart = format(invoice.periodStart, 'd MMM', { locale: ptBR })
   const periodEnd = format(invoice.periodEnd, 'd MMM', { locale: ptBR })
@@ -149,10 +152,15 @@ export default function CreditCardInvoiceCard({
 
           <div className="flex justify-between items-end pt-4 border-t">
             <div>
-              <p className="text-sm text-muted-foreground">Total</p>
+              <p className="text-sm text-muted-foreground">Total da fatura</p>
               <p className="text-2xl font-bold text-primary">
                 {formatCurrency(totalAmount)}
               </p>
+              {availableCredit !== null && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Disponível: {formatCurrency(availableCredit)} de {formatCurrency(creditLimit!)}
+                </p>
+              )}
             </div>
             <div className="text-right">
               {isClosed ? (
@@ -181,6 +189,21 @@ export default function CreditCardInvoiceCard({
             </div>
           </div>
 
+          {utilizationPercent !== null && (
+            <div className="space-y-1">
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Utilização do limite</span>
+                <span>{utilizationPercent.toFixed(0)}%</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-1.5 overflow-hidden">
+                <div
+                  className={`h-full transition-all ${utilizationPercent > 80 ? 'bg-red-500' : utilizationPercent > 60 ? 'bg-amber-500' : 'bg-primary'}`}
+                  style={{ width: `${utilizationPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {paidAmount > 0 && (
             <div className="space-y-2 pt-4 border-t">
               <div className="flex justify-between text-sm">
@@ -203,6 +226,44 @@ export default function CreditCardInvoiceCard({
           )}
         </div>
       </div>
+
+      {/* Lançamentos da fatura */}
+      {transactions.length > 0 && (
+        <div className="border-t pt-4">
+          <button
+            type="button"
+            onClick={() => setShowTransactions(!showTransactions)}
+            className="w-full flex items-center justify-between text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <span>{transactions.length} lançamento{transactions.length !== 1 ? 's' : ''}</span>
+            {showTransactions ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+
+          {showTransactions && (
+            <div className="mt-3 space-y-1">
+              {transactions.map((tx) => (
+                <div key={tx.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {tx.category?.icon && (
+                      <span className="text-base shrink-0">{tx.category.icon}</span>
+                    )}
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate">{tx.description || tx.category?.name || 'Sem descrição'}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(tx.date, 'd MMM', { locale: ptBR })}
+                        {tx.category && ` · ${tx.category.name}`}
+                      </p>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-red-500 shrink-0 ml-2">
+                    -{formatCurrency(Number(tx.amount))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {creditCard.autoPayInvoice && !isClosed && (
         <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">

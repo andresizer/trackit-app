@@ -65,8 +65,9 @@ export async function payInvoiceAction(
     amount >= totalAmount // Only mark as paid if paying full amount
   )
 
-  revalidatePath(`/[workspaceSlug]/accounts`, 'layout')
-  revalidatePath(`/[workspaceSlug]/accounts/${creditCard.id}`, 'page')
+  revalidatePath(`/[workspaceSlug]/credit-cards`, 'layout')
+  revalidatePath(`/[workspaceSlug]/credit-cards/${creditCard.id}`, 'page')
+  revalidatePath(`/[workspaceSlug]/transactions`, 'layout')
 
   return { success: true }
 }
@@ -194,8 +195,8 @@ export async function deleteInvoiceAction(invoiceId: string, workspaceId: string
     where: { id: invoiceId },
   })
 
-  revalidatePath(`/[workspaceSlug]/accounts`, 'layout')
-  revalidatePath(`/[workspaceSlug]/accounts/${invoice.creditCardId}`, 'page')
+  revalidatePath(`/[workspaceSlug]/credit-cards`, 'layout')
+  revalidatePath(`/[workspaceSlug]/credit-cards/${invoice.creditCardId}`, 'page')
 
   return { success: true }
 }
@@ -218,8 +219,8 @@ export async function toggleInvoicePaidAction(invoiceId: string, workspaceId: st
     data: { isPaid: newIsPaid },
   })
 
-  revalidatePath(`/[workspaceSlug]/accounts`, 'layout')
-  revalidatePath(`/[workspaceSlug]/accounts/${invoice.creditCardId}`, 'page')
+  revalidatePath(`/[workspaceSlug]/credit-cards`, 'layout')
+  revalidatePath(`/[workspaceSlug]/credit-cards/${invoice.creditCardId}`, 'page')
 
   return { success: true }
 }
@@ -249,8 +250,8 @@ export async function updateInvoiceDueDateAction(
     data: { dueDate: newDueDate },
   })
 
-  revalidatePath(`/[workspaceSlug]/accounts`, 'layout')
-  revalidatePath(`/[workspaceSlug]/accounts/${invoice.creditCardId}`, 'page')
+  revalidatePath(`/[workspaceSlug]/credit-cards`, 'layout')
+  revalidatePath(`/[workspaceSlug]/credit-cards/${invoice.creditCardId}`, 'page')
 
   return { success: true }
 }

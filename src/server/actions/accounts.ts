@@ -23,6 +23,7 @@ const createAccountSchema = z
     closingDay: z.number().int().min(1).max(31).optional(),
     dueDay: z.number().int().min(1).max(31).optional(),
     autoPayInvoice: z.boolean().default(false),
+    creditLimit: z.number().positive().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.isCreditCard) {
@@ -64,6 +65,7 @@ const updateAccountSchema = z
     closingDay: z.number().int().min(1).max(31).optional(),
     dueDay: z.number().int().min(1).max(31).optional(),
     autoPayInvoice: z.boolean().optional(),
+    creditLimit: z.number().positive().optional(),
   })
   .superRefine((data, ctx) => {
     if (data.isCreditCard) {
@@ -110,6 +112,7 @@ export async function createAccount(formData: FormData) {
     closingDay: formData.get('closingDay') ? Number(formData.get('closingDay')) : undefined,
     dueDay: formData.get('dueDay') ? Number(formData.get('dueDay')) : undefined,
     autoPayInvoice: formData.get('autoPayInvoice') === 'true',
+    creditLimit: formData.get('creditLimit') ? Number(formData.get('creditLimit')) : undefined,
   })
 
   await requireWorkspaceRole(session.user.id, data.workspaceId, 'EDITOR')
@@ -159,6 +162,7 @@ export async function createAccount(formData: FormData) {
       closingDay: data.closingDay,
       dueDay: data.dueDay,
       autoPayInvoice: data.autoPayInvoice,
+      creditLimit: data.creditLimit,
     },
   })
 
@@ -184,6 +188,7 @@ export async function updateAccount(formData: FormData) {
     closingDay: formData.get('closingDay') ? Number(formData.get('closingDay')) : undefined,
     dueDay: formData.get('dueDay') ? Number(formData.get('dueDay')) : undefined,
     autoPayInvoice: formData.get('autoPayInvoice') === 'true' ? true : undefined,
+    creditLimit: formData.get('creditLimit') ? Number(formData.get('creditLimit')) : undefined,
   })
 
   await requireWorkspaceRole(session.user.id, data.workspaceId, 'EDITOR')

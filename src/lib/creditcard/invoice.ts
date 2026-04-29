@@ -100,3 +100,39 @@ export async function getAllPendingInvoices(creditCardId: string) {
     orderBy: { periodEnd: 'asc' },
   });
 }
+
+export async function getPaidInvoices(creditCardId: string, limit = 12) {
+  return prisma.creditCardInvoice.findMany({
+    where: {
+      creditCardId,
+      isPaid: true,
+    },
+    orderBy: { periodEnd: 'desc' },
+    take: limit,
+  });
+}
+
+export async function getInvoiceTransactions(
+  creditCardId: string,
+  periodStart: Date,
+  periodEnd: Date
+) {
+  return prisma.transaction.findMany({
+    where: {
+      bankAccountId: creditCardId,
+      type: TransactionType.EXPENSE,
+      date: {
+        gte: periodStart,
+        lte: periodEnd,
+      },
+      OR: [
+        { specialType: null },
+        { specialType: { not: 'INVOICE_PAYMENT' } },
+      ],
+    },
+    include: {
+      category: true,
+    },
+    orderBy: { date: 'desc' },
+  });
+}

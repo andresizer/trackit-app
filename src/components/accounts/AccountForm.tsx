@@ -33,6 +33,7 @@ interface AccountFormProps {
     closingDay?: number | null
     dueDay?: number | null
     autoPayInvoice?: boolean
+    creditLimit?: number | null
   }
 }
 
@@ -56,6 +57,7 @@ export default function AccountForm({
   const [closingDay, setClosingDay] = useState(initialData?.closingDay || 15)
   const [dueDay, setDueDay] = useState(initialData?.dueDay || 10)
   const [autoPayInvoice, setAutoPayInvoice] = useState(initialData?.autoPayInvoice || false)
+  const [creditLimit, setCreditLimit] = useState(initialData?.creditLimit?.toString() || '')
 
   const isCreditCardType = creditCardTypeId && selectedTypeId === creditCardTypeId
 
@@ -92,6 +94,7 @@ export default function AccountForm({
       form.set('closingDay', closingDay.toString())
       form.set('dueDay', dueDay.toString())
       form.set('autoPayInvoice', autoPayInvoice ? 'true' : 'false')
+      if (creditLimit) form.set('creditLimit', creditLimit)
     }
 
     if (initialData) {
@@ -201,6 +204,19 @@ export default function AccountForm({
                 className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
               />
             </div>
+          </div>
+
+          <div className="space-y-2">
+            <label className="text-sm font-medium">Limite de Crédito</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={creditLimit}
+              onChange={(e) => setCreditLimit(e.target.value)}
+              placeholder="Ex: 5000,00"
+              className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+            />
           </div>
 
           <div className="flex items-center gap-3">

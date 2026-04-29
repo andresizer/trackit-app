@@ -6,7 +6,13 @@ import { ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 import CreditCardInvoiceCard from '@/components/accounts/CreditCardInvoiceCard'
-import { getOrCreateInvoice, refreshInvoiceTotal, getAllPendingInvoices } from '@/lib/creditcard/invoice'
+import {
+  getOrCreateInvoice,
+  refreshInvoiceTotal,
+  getAllPendingInvoices,
+  getPaidInvoices,
+  getInvoiceTransactions,
+} from '@/lib/creditcard/invoice'
 import { getInvoicePeriod } from '@/lib/creditcard/billing-cycle'
 
 interface CreditCardDetailPageProps {
@@ -45,9 +51,21 @@ export default async function CreditCardDetailPage({ params }: CreditCardDetailP
       throw new Error('Invoice not found')
     }
 
-    const allPendingInvoices = await getAllPendingInvoices(account.id)
+    const [allPendingInvoices, paidInvoices, currentTransactions] = await Promise.all([
+      getAllPendingInvoices(account.id),
+      getPaidInvoices(account.id),
+      getInvoiceTransactions(account.id, updatedInvoice.periodStart, updatedInvoice.periodEnd),
+    ])
+
     const closedUnpaidInvoices = allPendingInvoices.filter(
       (inv) => inv.periodEnd < updatedInvoice.periodEnd
+    )
+
+    // Busca transações das faturas fechadas não pagas
+    const closedInvoiceTransactions = await Promise.all(
+      closedUnpaidInvoices.map((inv) =>
+        getInvoiceTransactions(account.id, inv.periodStart, inv.periodEnd)
+      )
     )
 
     return (
@@ -73,12 +91,13 @@ export default async function CreditCardDetailPage({ params }: CreditCardDetailP
             <div className="space-y-3">
               <h2 className="text-lg font-semibold">Faturas Fechadas Pendentes</h2>
               <div className="space-y-3">
-                {closedUnpaidInvoices.map((inv) => (
+                {closedUnpaidInvoices.map((inv, idx) => (
                   <CreditCardInvoiceCard
                     key={inv.id}
                     invoice={inv}
                     creditCard={account}
                     workspaceId={workspace.id}
+                    transactions={closedInvoiceTransactions[idx]}
                     isClosed
                   />
                 ))}
@@ -92,8 +111,20 @@ export default async function CreditCardDetailPage({ params }: CreditCardDetailP
               invoice={updatedInvoice}
               creditCard={account}
               workspaceId={workspace.id}
+              transactions={currentTransactions}
             />
           </div>
+
+          {paidInvoices.length > 0 && (
+            <div className="space-y-3">
+              <h2 className="text-lg font-semibold">Histórico de Faturas</h2>
+              <div className="space-y-2">
+                {paidInvoices.map((inv) => (
+                  <PaidInvoiceRow key={inv.id} invoice={inv} />
+                ))}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     )
@@ -124,4 +155,30 @@ export default async function CreditCardDetailPage({ params }: CreditCardDetailP
       </div>
     )
   }
+}
+
+function PaidInvoiceRow({ invoice }: { invoice: { periodStart: Date; periodEnd: Date; dueDate: Date; totalAmount: unknown; paidAt: Date | null } }) {
+  const fmt = (d: Date) =>
+    d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
+  const fmtCurrency = (v: unknown) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(Number(v))
+
+  return (
+    <div className="flex items-center justify-between px-4 py-3 rounded-xl border border-border bg-card">
+      <div>
+        <p className="text-sm font-medium">
+          {fmt(invoice.periodStart)} → {fmt(invoice.periodEnd)}
+        </p>
+        <p className="text-xs text-muted-foreground">
+          Venc. {fmt(invoice.dueDate)}{invoice.paidAt ? ` · Paga em ${fmt(invoice.paidAt)}` : ''}
+        </p>
+      </div>
+      <div className="flex items-center gap-2">
+        <span className="font-semibold">{fmtCurrency(invoice.totalAmount)}</span>
+        <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-200">
+          Paga
+        </span>
+      </div>
+    </div>
+  )
 }
