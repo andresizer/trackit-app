@@ -8,6 +8,15 @@ import { Plus, Upload } from 'lucide-react'
 import Link from 'next/link'
 import { prisma } from '@/lib/db/prisma'
 
+function parseValidDate(str: string | undefined): Date | undefined {
+  if (!str) return undefined
+  const d = new Date(str)
+  if (isNaN(d.getTime())) return undefined
+  const year = d.getFullYear()
+  if (year < 1900 || year > 2100) return undefined
+  return d
+}
+
 interface TransactionsPageProps {
   params: Promise<{ workspaceSlug: string }>
   searchParams: Promise<{ 
@@ -36,8 +45,8 @@ export default async function TransactionsPage({ params, searchParams }: Transac
       type: sp.type as any,
       bankAccountId: sp.bankAccountId,
       categoryId: sp.categoryId,
-      startDate: sp.startDate ? new Date(sp.startDate) : undefined,
-      endDate: sp.endDate ? new Date(sp.endDate) : undefined,
+      startDate: parseValidDate(sp.startDate),
+      endDate: parseValidDate(sp.endDate),
     }),
     prisma.category.findMany({
       where: { workspaceId: workspace.id },

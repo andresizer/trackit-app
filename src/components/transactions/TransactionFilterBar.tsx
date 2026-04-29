@@ -114,8 +114,11 @@ export default function TransactionFilterBar({ accounts, categories }: Transacti
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-muted-foreground" />
+            <label htmlFor="filter-start-date" className="cursor-pointer">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+            </label>
             <input
+              id="filter-start-date"
               type="date"
               value={startDate}
               onChange={(e) => {
@@ -125,7 +128,11 @@ export default function TransactionFilterBar({ accounts, categories }: Transacti
               className="px-3 py-1.5 border border-border rounded-lg bg-background text-xs outline-none focus:ring-2 focus:ring-primary/20"
             />
             <span className="text-muted-foreground text-xs">até</span>
+            <label htmlFor="filter-end-date" className="cursor-pointer">
+              <Calendar className="w-4 h-4 text-muted-foreground" />
+            </label>
             <input
+              id="filter-end-date"
               type="date"
               value={endDate}
               onChange={(e) => {
