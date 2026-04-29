@@ -12,6 +12,7 @@ import {
   FileText,
   Repeat,
   Users,
+  MessageSquare,
   Settings,
   LogOut,
   ChevronLeft,
@@ -35,6 +36,7 @@ const NAV_ITEMS = [
   { label: 'Analytics', icon: BarChart3, path: '/analytics' },
   { label: 'Recorrências', icon: Repeat, path: '/recurring' },
   { label: 'Membros', icon: Users, path: '/members' },
+  { label: 'Chat IA', icon: MessageSquare, path: '/chat' },
   { label: 'Configurações', icon: Settings, path: '/settings' },
 ]
 
