@@ -1,4 +1,5 @@
 import { prisma } from '@/lib/db/prisma'
+import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns'
 
 /**
  * Calcula o saldo de uma conta bancária
@@ -141,4 +142,20 @@ export async function calculateAccountBalanceAtDate(
     Number(transfersOutSum._sum.amount ?? 0) +
     Number(transfersInSum._sum.amount ?? 0)
   )
+}
+
+export async function getAccountBalanceHistory(
+  accountId: string,
+  months: number = 6
+): Promise<{ month: string; balance: number }[]> {
+  const now = new Date()
+  const result = []
+
+  for (let i = months - 1; i >= 0; i--) {
+    const date = endOfMonth(subMonths(now, i))
+    const balance = await calculateAccountBalanceAtDate(accountId, date)
+    result.push({ month: format(date, 'MMM/yy'), balance })
+  }
+
+  return result
 }

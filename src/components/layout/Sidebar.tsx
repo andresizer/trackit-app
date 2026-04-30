@@ -5,7 +5,6 @@ import { usePathname } from 'next/navigation'
 import {
   LayoutDashboard,
   ArrowLeftRight,
-  CreditCard,
   Wallet,
   Tags,
   BarChart3,
@@ -30,7 +29,6 @@ const NAV_ITEMS = [
   { label: 'Dashboard', icon: LayoutDashboard, path: '' },
   { label: 'Transações', icon: ArrowLeftRight, path: '/transactions' },
   { label: 'Contas', icon: Wallet, path: '/accounts' },
-  { label: 'Cartões de Crédito', icon: CreditCard, path: '/credit-cards' },
   { label: 'Categorias', icon: Tags, path: '/categories' },
   { label: 'Relatórios', icon: FileText, path: '/reports' },
   { label: 'Analytics', icon: BarChart3, path: '/analytics' },
