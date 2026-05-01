@@ -86,22 +86,24 @@ export default async function AccountDetailPage({ params, searchParams }: Accoun
       const [allPendingInvoices, paidInvoices, currentTransactions] = await Promise.all([
         getAllPendingInvoices(account.id),
         getPaidInvoices(account.id),
-        getInvoiceTransactions(account.id, updatedInvoice.periodStart, updatedInvoice.periodEnd),
+        getInvoiceTransactions(account.id, updatedInvoice.periodStart, updatedInvoice.periodEnd, updatedInvoice.id),
       ])
 
       const closedUnpaidInvoices = allPendingInvoices.filter(
         (inv) => inv.periodEnd < updatedInvoice.periodEnd
       )
 
+      const availableInvoices = [...allPendingInvoices, ...paidInvoices]
+
       const [closedInvoiceTransactions, paidInvoiceTransactions] = await Promise.all([
         Promise.all(
           closedUnpaidInvoices.map((inv) =>
-            getInvoiceTransactions(account.id, inv.periodStart, inv.periodEnd)
+            getInvoiceTransactions(account.id, inv.periodStart, inv.periodEnd, inv.id)
           )
         ),
         Promise.all(
           paidInvoices.map((inv) =>
-            getInvoiceTransactions(account.id, inv.periodStart, inv.periodEnd)
+            getInvoiceTransactions(account.id, inv.periodStart, inv.periodEnd, inv.id)
           )
         ),
       ])
@@ -149,6 +151,7 @@ export default async function AccountDetailPage({ params, searchParams }: Accoun
                       creditCard={account}
                       workspaceId={workspace.id}
                       transactions={closedInvoiceTransactions[idx]}
+                      availableInvoices={availableInvoices}
                       isClosed
                     />
                   ))}
@@ -163,6 +166,7 @@ export default async function AccountDetailPage({ params, searchParams }: Accoun
                 creditCard={account}
                 workspaceId={workspace.id}
                 transactions={currentTransactions}
+                availableInvoices={availableInvoices}
               />
             </div>
 

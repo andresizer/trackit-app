@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { CreditCardInvoice, Transaction, Category } from '@prisma/client'
-import { toggleInvoicePaidAction } from '@/server/actions/creditcard'
+import { toggleInvoicePaidAction, payInvoiceAction } from '@/server/actions/creditcard'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronDown, ChevronUp } from 'lucide-react'
+import { ChevronDown, ChevronUp, AlertCircle } from 'lucide-react'
 
 type TransactionWithCategory = Transaction & { category: Category | null }
 
@@ -19,6 +19,13 @@ export default function PaidInvoiceRow({ invoice, transactions, workspaceId }: P
   const [isPending, startTransition] = useTransition()
   const [isPaid, setIsPaid] = useState(invoice.isPaid)
   const [showTransactions, setShowTransactions] = useState(false)
+  const [showPayDiff, setShowPayDiff] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const totalAmount = Number(invoice.totalAmount)
+  const paidAmount = Number(invoice.paidAmount)
+  const remainingAmount = Math.max(0, totalAmount - paidAmount)
+  const hasDifference = remainingAmount > 0
 
   const fmt = (d: Date) => format(d, 'd MMM yyyy', { locale: ptBR })
   const fmtShort = (d: Date) => format(d, 'd MMM', { locale: ptBR })
@@ -29,6 +36,18 @@ export default function PaidInvoiceRow({ invoice, transactions, workspaceId }: P
     startTransition(async () => {
       await toggleInvoicePaidAction(invoice.id, workspaceId)
       setIsPaid((prev) => !prev)
+    })
+  }
+
+  const handlePayDifference = () => {
+    setError(null)
+    startTransition(async () => {
+      try {
+        await payInvoiceAction(invoice.id, workspaceId, remainingAmount)
+        setShowPayDiff(false)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erro ao pagar diferença')
+      }
     })
   }
 
@@ -47,6 +66,17 @@ export default function PaidInvoiceRow({ invoice, transactions, workspaceId }: P
 
         <div className="flex items-center gap-2 shrink-0 ml-3">
           <span className="font-semibold text-sm">{fmtCurrency(invoice.totalAmount)}</span>
+
+          {hasDifference && (
+            <button
+              onClick={() => setShowPayDiff((s) => !s)}
+              title={`Diferença: ${fmtCurrency(remainingAmount)}`}
+              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-200 hover:opacity-80 transition-opacity"
+            >
+              <AlertCircle className="w-3 h-3" />
+              {fmtCurrency(remainingAmount)}
+            </button>
+          )}
 
           <button
             onClick={handleToggle}
@@ -72,6 +102,23 @@ export default function PaidInvoiceRow({ invoice, transactions, workspaceId }: P
           )}
         </div>
       </div>
+
+      {hasDifference && showPayDiff && (
+        <div className="border-t border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 px-4 py-3 space-y-2">
+          <p className="text-xs text-amber-700 dark:text-amber-300">
+            Novos lançamentos foram adicionados após o pagamento desta fatura.
+            Diferença a pagar: <span className="font-semibold">{fmtCurrency(remainingAmount)}</span>
+          </p>
+          {error && <p className="text-xs text-red-600 dark:text-red-400">{error}</p>}
+          <button
+            onClick={handlePayDifference}
+            disabled={isPending}
+            className="w-full py-2 rounded-lg bg-amber-600 text-white font-medium text-sm hover:bg-amber-700 transition-colors disabled:opacity-50"
+          >
+            {isPending ? 'Processando...' : `Pagar ${fmtCurrency(remainingAmount)}`}
+          </button>
+        </div>
+      )}
 
       {showTransactions && transactions.length > 0 && (
         <div className="border-t border-border divide-y divide-border/50">

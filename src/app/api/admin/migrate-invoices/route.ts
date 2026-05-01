@@ -70,7 +70,7 @@ export async function GET(request: Request) {
   // Recalcula totais de todas as faturas não pagas
   const remaining = await prisma.creditCardInvoice.findMany({ where: { isPaid: false } })
   for (const inv of remaining) {
-    const newTotal = await computeInvoiceTotal(inv.creditCardId, inv.periodStart, inv.periodEnd)
+    const newTotal = await computeInvoiceTotal(inv.creditCardId, inv.periodStart, inv.periodEnd, inv.id)
     await prisma.creditCardInvoice.update({
       where: { id: inv.id },
       data: { totalAmount: newTotal },

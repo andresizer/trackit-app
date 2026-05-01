@@ -2,10 +2,10 @@
 
 import { useState, useTransition } from 'react'
 import { BankAccount, CreditCardInvoice, Transaction, Category } from '@prisma/client'
-import { payInvoiceAction, deleteInvoiceAction, toggleInvoicePaidAction, updateInvoiceDueDateAction } from '@/server/actions/creditcard'
+import { payInvoiceAction, deleteInvoiceAction, toggleInvoicePaidAction, updateInvoiceDueDateAction, moveTransactionToInvoiceAction } from '@/server/actions/creditcard'
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Trash2, ChevronDown, ChevronUp, ArrowRightLeft } from 'lucide-react'
 
 type TransactionWithCategory = Transaction & { category: Category | null }
 
@@ -14,6 +14,7 @@ interface CreditCardInvoiceCardProps {
   creditCard: BankAccount
   workspaceId: string
   transactions?: TransactionWithCategory[]
+  availableInvoices?: CreditCardInvoice[]
   isClosed?: boolean
 }
 
@@ -22,6 +23,7 @@ export default function CreditCardInvoiceCard({
   creditCard,
   workspaceId,
   transactions = [],
+  availableInvoices = [],
   isClosed = false,
 }: CreditCardInvoiceCardProps) {
   const [isPending, startTransition] = useTransition()
@@ -32,6 +34,7 @@ export default function CreditCardInvoiceCard({
   const [newDueDate, setNewDueDate] = useState(format(invoice.dueDate, 'yyyy-MM-dd'))
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showTransactions, setShowTransactions] = useState(false)
+  const [movingTxId, setMovingTxId] = useState<string | null>(null)
 
   const totalAmount = Number(invoice.totalAmount)
   const paidAmount = Number(invoice.paidAmount)
@@ -42,6 +45,18 @@ export default function CreditCardInvoiceCard({
   const progressPercent = totalAmount > 0 ? (paidAmount / totalAmount) * 100 : 0
   const utilizationPercent = creditLimit && creditLimit > 0 ? Math.min((totalAmount / creditLimit) * 100, 100) : null
   const availableCredit = creditLimit !== null ? Math.max(0, creditLimit - totalAmount) : null
+
+  // Faturas disponíveis para mover transações (excluindo a fatura atual)
+  const otherInvoices = availableInvoices.filter((inv) => inv.id !== invoice.id)
+
+  const formatCurrency = (value: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+
+  const formatInvoiceLabel = (inv: CreditCardInvoice) => {
+    const start = format(inv.periodStart, 'd MMM', { locale: ptBR })
+    const end = format(inv.periodEnd, 'd MMM yyyy', { locale: ptBR })
+    return `${start} → ${end}`
+  }
 
   const handlePayInvoice = () => {
     setError(null)
@@ -125,8 +140,18 @@ export default function CreditCardInvoiceCard({
     }
   }
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)
+  const handleMoveTransaction = (txId: string, targetInvoiceId: string | null) => {
+    setMovingTxId(txId)
+    startTransition(async () => {
+      try {
+        await moveTransactionToInvoiceAction(txId, targetInvoiceId, workspaceId)
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Erro ao mover transação')
+      } finally {
+        setMovingTxId(null)
+      }
+    })
+  }
 
   const periodStart = format(invoice.periodStart, 'd MMM', { locale: ptBR })
   const periodEnd = format(invoice.periodEnd, 'd MMM', { locale: ptBR })
@@ -222,7 +247,7 @@ export default function CreditCardInvoiceCard({
               {remainingAmount > 0 && (
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Restante</span>
-                  <span className="font-medium">{formatCurrency(remainingAmount)}</span>
+                  <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(remainingAmount)}</span>
                 </div>
               )}
             </div>
@@ -245,7 +270,7 @@ export default function CreditCardInvoiceCard({
           {showTransactions && (
             <div className="mt-3 space-y-1">
               {transactions.map((tx) => (
-                <div key={tx.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors">
+                <div key={tx.id} className="flex items-center justify-between py-2 px-3 rounded-lg hover:bg-muted/50 transition-colors group">
                   <div className="flex items-center gap-2 min-w-0">
                     {tx.category?.icon && (
                       <span className="text-base shrink-0">{tx.category.icon}</span>
@@ -258,9 +283,35 @@ export default function CreditCardInvoiceCard({
                       </p>
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-red-500 shrink-0 ml-2">
-                    -{formatCurrency(Number(tx.amount))}
-                  </span>
+                  <div className="flex items-center gap-2 shrink-0 ml-2">
+                    <span className="text-sm font-semibold text-red-500">
+                      -{formatCurrency(Number(tx.amount))}
+                    </span>
+                    {otherInvoices.length > 0 && (
+                      <div className="relative opacity-0 group-hover:opacity-100 transition-opacity">
+                        <select
+                          title="Mover para outra fatura"
+                          disabled={isPending || movingTxId === tx.id}
+                          onChange={(e) => {
+                            const val = e.target.value
+                            handleMoveTransaction(tx.id, val === '' ? null : val)
+                            e.target.value = tx.creditCardInvoiceId ?? ''
+                          }}
+                          defaultValue={tx.creditCardInvoiceId ?? ''}
+                          className="appearance-none cursor-pointer rounded p-1 text-xs bg-muted text-muted-foreground border border-border hover:bg-muted/80 disabled:opacity-50"
+                        >
+                          <option value="" disabled>Mover para...</option>
+                          <option value="">↩ Período da data</option>
+                          {otherInvoices.map((inv) => (
+                            <option key={inv.id} value={inv.id}>
+                              {formatInvoiceLabel(inv)}
+                            </option>
+                          ))}
+                        </select>
+                        <ArrowRightLeft className="pointer-events-none absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-muted-foreground" />
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -290,8 +341,15 @@ export default function CreditCardInvoiceCard({
         </div>
       )}
 
-      {!isPaidState && remainingAmount > 0 && (
+      {remainingAmount > 0 && (
         <div className="space-y-3 pt-4 border-t">
+          {isPaidState && (
+            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-lg px-4 py-3">
+              <p className="text-sm text-amber-700 dark:text-amber-300">
+                Diferença após pagamento: <span className="font-semibold">{formatCurrency(remainingAmount)}</span>
+              </p>
+            </div>
+          )}
           <div>
             <label className="text-sm font-medium block mb-2">
               Valor a pagar (máximo {formatCurrency(remainingAmount)})
@@ -312,12 +370,12 @@ export default function CreditCardInvoiceCard({
             disabled={isPending}
             className="w-full py-3 rounded-xl bg-primary text-primary-foreground font-medium text-sm hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {isPending ? 'Processando...' : 'Pagar'}
+            {isPending ? 'Processando...' : isPaidState ? 'Pagar diferença' : 'Pagar'}
           </button>
         </div>
       )}
 
-      {isPaidState && (
+      {!remainingAmount && isPaidState && (
         <div className="text-center py-4 text-sm text-green-600 dark:text-green-400 font-medium">
           Fatura totalmente paga
         </div>

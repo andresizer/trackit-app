@@ -9,6 +9,7 @@ import {
   createInstallment,
   createInvoicePayment,
 } from '@/lib/transactions/create'
+import { refreshInvoiceForDate } from '@/lib/creditcard/invoice'
 import { revalidatePath } from 'next/cache'
 import { z } from 'zod'
 
@@ -134,6 +135,9 @@ export async function createTransactionAction(formData: FormData) {
     await generateRecurringTransactions(data.workspaceId)
   }
 
+  // Atualiza total da fatura se a conta for cartão de crédito
+  await refreshInvoiceForDate(data.bankAccountId, data.date, data.workspaceId)
+
   revalidatePath(`/[workspaceSlug]`, 'layout')
   return { success: true }
 }
@@ -147,18 +151,42 @@ export async function updateTransaction(
 
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
-  const transaction = await prisma.transaction.update({
+  // Captura dados antigos antes de atualizar para refresh correto das faturas
+  const oldTx = await prisma.transaction.findUnique({
+    where: { id: transactionId },
+    select: { bankAccountId: true, date: true },
+  })
+
+  const newBankAccountId = (formData.get('bankAccountId') as string) || oldTx?.bankAccountId
+  const newDate = formData.get('date')
+    ? new Date(formData.get('date') as string)
+    : oldTx?.date
+
+  await prisma.transaction.update({
     where: { id: transactionId },
     data: {
       type: (formData.get('type') as TransactionType) || undefined,
       amount: formData.get('amount') ? Number(formData.get('amount')) : undefined,
       description: (formData.get('description') as string) || undefined,
-      date: formData.get('date') ? new Date(formData.get('date') as string) : undefined,
-      bankAccountId: (formData.get('bankAccountId') as string) || undefined,
+      date: newDate,
+      bankAccountId: newBankAccountId,
       categoryId: (formData.get('categoryId') as string) || undefined,
       paymentMethodId: (formData.get('paymentMethodId') as string) || undefined,
     },
   })
+
+  // Refresh fatura do período antigo e do novo (se mudou data ou conta)
+  if (oldTx) {
+    await refreshInvoiceForDate(oldTx.bankAccountId, oldTx.date, workspaceId)
+  }
+  if (
+    newBankAccountId &&
+    newDate &&
+    (newBankAccountId !== oldTx?.bankAccountId ||
+      newDate.getTime() !== oldTx?.date.getTime())
+  ) {
+    await refreshInvoiceForDate(newBankAccountId, newDate, workspaceId)
+  }
 
   revalidatePath(`/[workspaceSlug]`, 'layout')
   return { success: true }
@@ -174,23 +202,44 @@ export async function deleteTransaction(
 
   const tx = await prisma.transaction.findUnique({
     where: { id: transactionId },
-    select: { installmentGroupId: true, recurringRuleId: true },
+    select: { installmentGroupId: true, recurringRuleId: true, bankAccountId: true, date: true },
   })
 
+  // Coleta todas as combinações (conta, data) afetadas antes de deletar
+  const affectedPairs: { bankAccountId: string; date: Date }[] = []
+
   if (deleteAll && tx?.installmentGroupId) {
-    // Deletar todas as parcelas do grupo
+    const installments = await prisma.transaction.findMany({
+      where: { installmentGroupId: tx.installmentGroupId },
+      select: { bankAccountId: true, date: true },
+    })
+    // Deduplica por mês/conta para não refreshar o mesmo período duas vezes
+    const seen = new Set<string>()
+    for (const inst of installments) {
+      const key = `${inst.bankAccountId}-${inst.date.getUTCFullYear()}-${inst.date.getUTCMonth()}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        affectedPairs.push(inst)
+      }
+    }
+
     await prisma.transaction.deleteMany({
       where: { installmentGroupId: tx.installmentGroupId },
     })
-    // Opcional: Deletar o grupo também
     await prisma.installmentGroup.delete({
       where: { id: tx.installmentGroupId },
     })
   } else {
-    // Deletar apenas esta
+    if (tx) affectedPairs.push({ bankAccountId: tx.bankAccountId, date: tx.date })
+
     await prisma.transaction.delete({
       where: { id: transactionId },
     })
+  }
+
+  // Refresh faturas afetadas após deletar
+  for (const pair of affectedPairs) {
+    await refreshInvoiceForDate(pair.bankAccountId, pair.date, workspaceId)
   }
 
   revalidatePath(`/[workspaceSlug]`, 'layout')

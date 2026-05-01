@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db/prisma'
 import { requireSession } from '@/lib/auth/session'
 import { requireWorkspaceRole } from '@/lib/workspace/permissions'
 import { revalidatePath } from 'next/cache'
-import { refreshInvoiceTotal } from '@/lib/creditcard/invoice'
+import { refreshInvoiceTotal, refreshInvoiceForDate } from '@/lib/creditcard/invoice'
 import { createInvoicePayment } from '@/lib/transactions/create'
 
 export async function payInvoiceAction(
@@ -25,10 +25,6 @@ export async function payInvoiceAction(
     throw new Error('Fatura não encontrada')
   }
 
-  if (invoice.isPaid) {
-    throw new Error('Fatura já foi paga')
-  }
-
   const creditCard = invoice.creditCard
   if (!creditCard.linkedCheckingAccountId) {
     throw new Error('Cartão não está vinculado a uma conta corrente')
@@ -47,7 +43,12 @@ export async function payInvoiceAction(
   const totalAmount = updated.totalAmount.toNumber()
   const paidAmount = updated.paidAmount.toNumber()
   const remainingAmount = totalAmount - paidAmount
-  const amount = partialAmount ? Math.min(partialAmount, remainingAmount) : totalAmount
+
+  if (remainingAmount <= 0) {
+    throw new Error('Fatura já está completamente paga')
+  }
+
+  const amount = partialAmount ? Math.min(partialAmount, remainingAmount) : remainingAmount
 
   if (amount <= 0) {
     throw new Error('Valor inválido para pagamento')
@@ -62,7 +63,7 @@ export async function payInvoiceAction(
     updated.dueDate,
     undefined,
     invoiceId,
-    amount >= totalAmount // Only mark as paid if paying full amount
+    amount >= remainingAmount // Mark as paid when covering the full remaining balance
   )
 
   revalidatePath(`/[workspaceSlug]/credit-cards`, 'layout')
@@ -140,10 +141,6 @@ async function payInvoiceActionInternal(
     throw new Error('Fatura não encontrada')
   }
 
-  if (invoice.isPaid) {
-    throw new Error('Fatura já foi paga')
-  }
-
   const creditCard = invoice.creditCard
   if (!creditCard.linkedCheckingAccountId) {
     throw new Error('Cartão não está vinculado a uma conta corrente')
@@ -162,7 +159,12 @@ async function payInvoiceActionInternal(
   const totalAmount = updated.totalAmount.toNumber()
   const paidAmount = updated.paidAmount.toNumber()
   const remainingAmount = totalAmount - paidAmount
-  const amount = partialAmount ? Math.min(partialAmount, remainingAmount) : totalAmount
+
+  if (remainingAmount <= 0) {
+    throw new Error('Fatura já está completamente paga')
+  }
+
+  const amount = partialAmount ? Math.min(partialAmount, remainingAmount) : remainingAmount
 
   if (amount <= 0) {
     throw new Error('Valor inválido para pagamento')
@@ -177,7 +179,7 @@ async function payInvoiceActionInternal(
     updated.dueDate,
     undefined,
     invoiceId,
-    amount >= totalAmount // Only mark as paid if paying full amount
+    amount >= remainingAmount // Mark as paid when covering the full remaining balance
   )
 }
 
@@ -255,5 +257,45 @@ export async function updateInvoiceDueDateAction(
   revalidatePath(`/[workspaceSlug]/credit-cards`, 'layout')
   revalidatePath(`/[workspaceSlug]/credit-cards/${invoice.creditCardId}`, 'page')
 
+  return { success: true }
+}
+
+// Move uma transação para uma fatura específica (ou de volta ao período natural via null)
+export async function moveTransactionToInvoiceAction(
+  transactionId: string,
+  targetInvoiceId: string | null,
+  workspaceId: string
+) {
+  const session = await requireSession()
+  await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
+
+  const tx = await prisma.transaction.findUnique({
+    where: { id: transactionId },
+    select: { bankAccountId: true, date: true, creditCardInvoiceId: true },
+  })
+
+  if (!tx) {
+    throw new Error('Transação não encontrada')
+  }
+
+  await prisma.transaction.update({
+    where: { id: transactionId },
+    data: { creditCardInvoiceId: targetInvoiceId },
+  })
+
+  // Refresh da fatura correspondente ao período natural da data (pode ter perdido ou ganho a tx)
+  await refreshInvoiceForDate(tx.bankAccountId, tx.date, workspaceId)
+
+  // Refresh do vínculo anterior explícito, se diferente do período natural
+  if (tx.creditCardInvoiceId && tx.creditCardInvoiceId !== targetInvoiceId) {
+    await refreshInvoiceTotal(tx.creditCardInvoiceId)
+  }
+
+  // Refresh da nova fatura destino
+  if (targetInvoiceId && targetInvoiceId !== tx.creditCardInvoiceId) {
+    await refreshInvoiceTotal(targetInvoiceId)
+  }
+
+  revalidatePath(`/[workspaceSlug]/accounts`, 'layout')
   return { success: true }
 }

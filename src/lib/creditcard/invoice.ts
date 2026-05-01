@@ -44,22 +44,38 @@ export async function getOrCreateInvoice(
   });
 }
 
+// Calcula o total de uma fatura considerando vínculo explícito por invoiceId
+// ou vínculo implícito por data (quando creditCardInvoiceId é null)
 export async function computeInvoiceTotal(
   creditCardId: string,
   periodStart: Date,
-  periodEnd: Date
+  periodEnd: Date,
+  invoiceId?: string
 ): Promise<Decimal> {
+  const invoiceFilter = invoiceId
+    ? {
+        OR: [
+          { creditCardInvoiceId: invoiceId },
+          {
+            date: { gte: periodStart, lte: periodEnd },
+            creditCardInvoiceId: null,
+          },
+        ],
+      }
+    : { date: { gte: periodStart, lte: periodEnd } };
+
   const result = await prisma.transaction.aggregate({
     where: {
       bankAccountId: creditCardId,
       type: TransactionType.EXPENSE,
-      date: {
-        gte: periodStart,
-        lte: periodEnd,
-      },
-      OR: [
-        { specialType: null },
-        { specialType: { not: 'INVOICE_PAYMENT' } },
+      AND: [
+        {
+          OR: [
+            { specialType: null },
+            { specialType: { not: 'INVOICE_PAYMENT' } },
+          ],
+        },
+        invoiceFilter,
       ],
     },
     _sum: {
@@ -82,13 +98,35 @@ export async function refreshInvoiceTotal(invoiceId: string) {
   const newTotal = await computeInvoiceTotal(
     invoice.creditCardId,
     invoice.periodStart,
-    invoice.periodEnd
+    invoice.periodEnd,
+    invoiceId
   );
 
   return prisma.creditCardInvoice.update({
     where: { id: invoiceId },
     data: { totalAmount: newTotal },
   });
+}
+
+// Encontra (ou cria) a fatura correspondente à data de uma transação e atualiza seu total.
+// Seguro chamar para qualquer conta — retorna silenciosamente se não for cartão configurado.
+export async function refreshInvoiceForDate(
+  creditCardId: string,
+  date: Date,
+  workspaceId: string
+): Promise<void> {
+  const creditCard = await prisma.bankAccount.findUnique({
+    where: { id: creditCardId },
+    select: { isCreditCard: true, closingDay: true, dueDay: true },
+  });
+
+  if (!creditCard?.isCreditCard || !creditCard.closingDay || !creditCard.dueDay) {
+    return;
+  }
+
+  const period = getInvoicePeriod(creditCard.closingDay, creditCard.dueDay, date);
+  const invoice = await getOrCreateInvoice(creditCardId, period.periodEnd, workspaceId);
+  await refreshInvoiceTotal(invoice.id);
 }
 
 export async function getAllPendingInvoices(creditCardId: string) {
@@ -115,19 +153,33 @@ export async function getPaidInvoices(creditCardId: string, limit = 12) {
 export async function getInvoiceTransactions(
   creditCardId: string,
   periodStart: Date,
-  periodEnd: Date
+  periodEnd: Date,
+  invoiceId?: string
 ) {
+  const invoiceFilter = invoiceId
+    ? {
+        OR: [
+          { creditCardInvoiceId: invoiceId },
+          {
+            date: { gte: periodStart, lte: periodEnd },
+            creditCardInvoiceId: null,
+          },
+        ],
+      }
+    : { date: { gte: periodStart, lte: periodEnd } };
+
   return prisma.transaction.findMany({
     where: {
       bankAccountId: creditCardId,
       type: TransactionType.EXPENSE,
-      date: {
-        gte: periodStart,
-        lte: periodEnd,
-      },
-      OR: [
-        { specialType: null },
-        { specialType: { not: 'INVOICE_PAYMENT' } },
+      AND: [
+        {
+          OR: [
+            { specialType: null },
+            { specialType: { not: 'INVOICE_PAYMENT' } },
+          ],
+        },
+        invoiceFilter,
       ],
     },
     include: {

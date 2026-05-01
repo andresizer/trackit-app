@@ -342,6 +342,9 @@ model Transaction {
   // Tipo especial (F7, I1, I2, R8)
   specialType SpecialType?
 
+  // Vínculo explícito com fatura (sobrepõe a lógica de data)
+  creditCardInvoiceId String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -353,12 +356,14 @@ model Transaction {
   installmentGroup  InstallmentGroup? @relation(fields: [installmentGroupId], references: [id], onDelete: SetNull)
   recurringRule     RecurringRule?    @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
   invoicePayment    CreditCardInvoice? @relation("InvoicePaymentTx")
+  creditCardInvoice CreditCardInvoice? @relation("TransactionInvoice", fields: [creditCardInvoiceId], references: [id], onDelete: SetNull)
 
   // Índices compostos para performance
   @@index([workspaceId, date])
   @@index([workspaceId, categoryId])
   @@index([bankAccountId])
   @@index([installmentGroupId])
+  @@index([creditCardInvoiceId])
   @@map("transactions")
 }
 
@@ -453,9 +458,10 @@ model CreditCardInvoice {
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 
-  workspace  Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creditCard BankAccount @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
-  paymentTx  Transaction? @relation("InvoicePaymentTx", fields: [paymentTxId], references: [id], onDelete: SetNull)
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creditCard   BankAccount   @relation(fields: [creditCardId], references: [id], onDelete: Cascade)
+  paymentTx    Transaction?  @relation("InvoicePaymentTx", fields: [paymentTxId], references: [id], onDelete: SetNull)
+  transactions Transaction[] @relation("TransactionInvoice")
 
   @@unique([creditCardId, periodEnd])
   @@index([workspaceId])
