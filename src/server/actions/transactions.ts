@@ -172,6 +172,7 @@ export async function updateTransaction(
       bankAccountId: newBankAccountId,
       categoryId: (formData.get('categoryId') as string) || undefined,
       paymentMethodId: (formData.get('paymentMethodId') as string) || undefined,
+      transferToAccountId: (formData.get('transferToAccountId') as string) || null,
     },
   })
 
