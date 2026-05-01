@@ -170,20 +170,30 @@ export default async function AccountsPage({ params }: AccountsPageProps) {
                     className="glass-card p-5 space-y-3 animate-fade-in overflow-hidden hover:ring-2 hover:ring-primary/20 transition-all block"
                     style={{ borderTop: card.color ? `4px solid ${card.color}` : undefined }}
                   >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
-                        style={{
-                          backgroundColor: card.color ? `${card.color}20` : '#88888820',
-                          border: card.color ? `1px solid ${card.color}40` : '1px solid #88888840',
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+                          style={{
+                            backgroundColor: card.color ? `${card.color}20` : '#88888820',
+                            border: card.color ? `1px solid ${card.color}40` : '1px solid #88888840',
+                          }}
+                        >
+                          {card.icon ?? '💳'}
+                        </div>
+                        <div>
+                          <p className="font-semibold text-sm">{card.name}</p>
+                          <p className="text-xs text-muted-foreground">{card.accountType?.name ?? 'Cartão de Crédito'}</p>
+                        </div>
+                      </div>
+                      <DeleteAccountButton
+                        accountId={card.id}
+                        accountName={card.name}
+                        onDelete={async (id) => {
+                          'use server'
+                          await deleteAccount(id, workspace.id)
                         }}
-                      >
-                        {card.icon ?? '💳'}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-sm">{card.name}</p>
-                        <p className="text-xs text-muted-foreground">{card.accountType?.name ?? 'Cartão de Crédito'}</p>
-                      </div>
+                      />
                     </div>
 
                     {!isConfigured ? (
