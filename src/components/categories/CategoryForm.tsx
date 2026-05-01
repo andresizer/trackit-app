@@ -28,6 +28,7 @@ export default function CategoryForm({
   const [selectedColor, setSelectedColor] = useState(initialData?.color || '#6366f1')
   const [selectedIcon, setSelectedIcon] = useState(initialData?.icon || '📌')
   const [showEmojiPicker, setShowEmojiPicker] = useState(false)
+  const [selectedParentId, setSelectedParentId] = useState(initialData?.parentId || '')
 
   const colors = [
     '#ef4444', '#f97316', '#eab308', '#22c55e', '#14b8a6', 
@@ -80,13 +81,25 @@ export default function CategoryForm({
       </div>
 
       <div className="space-y-2">
-        <label className="text-sm font-medium">Categoria Pai (opcional)</label>
+        <div className="flex items-center justify-between">
+          <label className="text-sm font-medium">Pertence a:</label>
+          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+            selectedParentId
+              ? 'bg-primary/10 text-primary'
+              : 'bg-primary/10 text-primary'
+          }`}>
+            {selectedParentId
+              ? `Sub-categoria de ${rootCategories.find(c => c.id === selectedParentId)?.name}`
+              : 'Categoria'}
+          </span>
+        </div>
         <select
           name="parentId"
-          defaultValue={initialData?.parentId || ''}
+          value={selectedParentId}
+          onChange={(e) => setSelectedParentId(e.target.value)}
           className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
         >
-          <option value="">Sem Categoria Pai (Raiz)</option>
+          <option value="">— nenhuma (categoria raiz) —</option>
           {rootCategories
             .filter(c => c.id !== initialData?.id) // Evitar circularidade simples
             .map((cat) => (
@@ -95,9 +108,6 @@ export default function CategoryForm({
               </option>
             ))}
         </select>
-        <p className="text-[10px] text-muted-foreground mt-1">
-          Selecione um pai para transformar esta categoria em uma subcategoria.
-        </p>
       </div>
 
       <div className="space-y-3">

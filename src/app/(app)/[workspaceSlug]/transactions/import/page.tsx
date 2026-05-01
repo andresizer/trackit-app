@@ -20,7 +20,7 @@ export default async function ImportPage({ params }: ImportPageProps) {
       orderBy: { name: 'asc' },
     }),
     prisma.category.findMany({
-      where: { workspaceId: workspace.id },
+      where: { workspaceId: workspace.id, parentId: null },
       include: { children: { select: { id: true, name: true }, orderBy: { name: 'asc' } } },
       orderBy: { name: 'asc' },
     }),
