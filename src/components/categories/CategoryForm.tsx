@@ -14,7 +14,6 @@ interface CategoryFormProps {
     icon: string | null
     color: string | null
     parentId: string | null
-    monthlyLimit?: number
   }
 }
 
@@ -98,21 +97,6 @@ export default function CategoryForm({
         </select>
         <p className="text-[10px] text-muted-foreground mt-1">
           Selecione um pai para transformar esta categoria em uma subcategoria.
-        </p>
-      </div>
-
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Limite Mensal (R$)</label>
-        <input
-          name="monthlyLimit"
-          type="number"
-          step="0.01"
-          defaultValue={initialData?.monthlyLimit ?? ''}
-          placeholder="Ex: 800,00"
-          className="w-full px-4 py-2.5 border border-input rounded-xl bg-background text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
-        />
-        <p className="text-[10px] text-muted-foreground mt-1">
-          Defina o orçamento disponível para esta categoria no mês atual.
         </p>
       </div>
 

@@ -15,7 +15,6 @@ const createCategorySchema = z.object({
   icon: z.string().optional(),
   color: z.string().optional(),
   parentId: z.string().nullable().optional(),
-  monthlyLimit: z.number().optional(),
 })
 
 const updateCategorySchema = z.object({
@@ -25,7 +24,6 @@ const updateCategorySchema = z.object({
   icon: z.string().optional(),
   color: z.string().optional(),
   parentId: z.string().nullable().optional(),
-  monthlyLimit: z.number().optional(),
 })
 
 // ============================================================
@@ -41,7 +39,6 @@ export async function createCategory(formData: FormData) {
     icon: formData.get('icon') || undefined,
     color: formData.get('color') || undefined,
     parentId: formData.get('parentId') || null,
-    monthlyLimit: formData.get('monthlyLimit') ? Number(formData.get('monthlyLimit')) : undefined,
   })
 
   await requireWorkspaceRole(session.user.id, data.workspaceId, 'EDITOR')
@@ -55,19 +52,6 @@ export async function createCategory(formData: FormData) {
       parentId: data.parentId,
     },
   })
-  
-  if (data.monthlyLimit !== undefined) {
-    const now = new Date()
-    await prisma.budget.create({
-      data: {
-        workspaceId: data.workspaceId,
-        categoryId: category.id,
-        monthlyLimit: data.monthlyLimit,
-        month: now.getMonth() + 1,
-        year: now.getFullYear(),
-      },
-    })
-  }
 
   revalidatePath(`/[workspaceSlug]/categories`, 'page')
   return {
@@ -93,39 +77,16 @@ export async function updateCategory(formData: FormData) {
     icon: formData.get('icon') || undefined,
     color: formData.get('color') || undefined,
     parentId: formData.get('parentId') || null,
-    monthlyLimit: formData.get('monthlyLimit') ? Number(formData.get('monthlyLimit')) : undefined,
   })
 
   await requireWorkspaceRole(session.user.id, data.workspaceId, 'EDITOR')
 
-  const { id, workspaceId, monthlyLimit, ...updateData } = data
+  const { id, workspaceId, ...updateData } = data
 
   await prisma.category.update({
     where: { id },
     data: updateData,
   })
-  
-  if (monthlyLimit !== undefined) {
-    const now = new Date()
-    await prisma.budget.upsert({
-      where: {
-        workspaceId_categoryId_month_year: {
-          workspaceId,
-          categoryId: id,
-          month: now.getMonth() + 1,
-          year: now.getFullYear(),
-        },
-      },
-      update: { monthlyLimit },
-      create: {
-        workspaceId,
-        categoryId: id,
-        monthlyLimit,
-        month: now.getMonth() + 1,
-        year: now.getFullYear(),
-      },
-    })
-  }
 
   revalidatePath(`/[workspaceSlug]/categories`, 'page')
   return { success: true }

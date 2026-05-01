@@ -14,11 +14,7 @@ export default async function EditCategoryPage({ params }: EditCategoryPageProps
   const session = await requireSession()
   const workspace = await getWorkspaceBySlug(workspaceSlug, session.user.id)
 
-  const now = new Date()
-  const currentMonth = now.getMonth() + 1
-  const currentYear = now.getFullYear()
-
-  const [category, rootCategories, currentBudget] = await Promise.all([
+  const [category, rootCategories] = await Promise.all([
     prisma.category.findUnique({
       where: { id, workspaceId: workspace.id },
     }),
@@ -27,26 +23,13 @@ export default async function EditCategoryPage({ params }: EditCategoryPageProps
       select: { id: true, name: true },
       orderBy: { name: 'asc' },
     }),
-    prisma.budget.findUnique({
-      where: {
-        workspaceId_categoryId_month_year: {
-          workspaceId: workspace.id,
-          categoryId: id,
-          month: currentMonth,
-          year: currentYear,
-        },
-      },
-    }),
   ])
 
   if (!category) {
     return notFound()
   }
 
-  const initialData = {
-    ...category,
-    monthlyLimit: currentBudget ? Number(currentBudget.monthlyLimit) : undefined,
-  }
+  const initialData = { ...category }
 
   return (
     <div className="flex min-h-screen">
