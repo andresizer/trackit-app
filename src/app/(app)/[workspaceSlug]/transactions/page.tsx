@@ -19,12 +19,13 @@ function parseValidDate(str: string | undefined): Date | undefined {
 
 interface TransactionsPageProps {
   params: Promise<{ workspaceSlug: string }>
-  searchParams: Promise<{ 
-    page?: string 
+  searchParams: Promise<{
+    page?: string
     search?: string
     type?: string
     bankAccountId?: string
     categoryId?: string
+    tagId?: string
     startDate?: string
     endDate?: string
   }>
@@ -37,7 +38,7 @@ export default async function TransactionsPage({ params, searchParams }: Transac
   const workspace = await getWorkspaceBySlug(workspaceSlug, session.user.id)
   const page = Number(sp.page ?? 1)
 
-  const [result, categories, accounts] = await Promise.all([
+  const [result, categories, accounts, tags] = await Promise.all([
     getTransactions(workspace.id, {
       page,
       limit: 50,
@@ -45,6 +46,7 @@ export default async function TransactionsPage({ params, searchParams }: Transac
       type: sp.type as any,
       bankAccountId: sp.bankAccountId,
       categoryId: sp.categoryId,
+      tagId: sp.tagId,
       startDate: parseValidDate(sp.startDate),
       endDate: parseValidDate(sp.endDate),
     }),
@@ -56,6 +58,11 @@ export default async function TransactionsPage({ params, searchParams }: Transac
     prisma.bankAccount.findMany({
       where: { workspaceId: workspace.id },
       select: { id: true, name: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.tag.findMany({
+      where: { workspaceId: workspace.id },
+      select: { id: true, name: true, color: true },
       orderBy: { name: 'asc' },
     }),
   ])
@@ -88,7 +95,7 @@ export default async function TransactionsPage({ params, searchParams }: Transac
         </div>
 
         <div className="glass-card p-6">
-          <TransactionFilterBar accounts={accounts} categories={categories} />
+          <TransactionFilterBar accounts={accounts} categories={categories} tags={tags} />
           <TransactionList transactions={result.transactions as any[]} workspaceId={workspace.id} />
         </div>
 

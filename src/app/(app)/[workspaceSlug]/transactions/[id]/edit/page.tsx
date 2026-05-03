@@ -17,6 +17,7 @@ export default async function EditTransactionPage({ params }: EditTransactionPag
 
   const transactionRaw = await prisma.transaction.findFirst({
     where: { id: id, workspaceId: workspace.id },
+    include: { tags: true },
   })
 
   if (!transactionRaw) {
@@ -38,13 +39,17 @@ export default async function EditTransactionPage({ params }: EditTransactionPag
     initialBalance: Number(acc.initialBalance)
   }))
 
-  const [categories, accountTypes] = await Promise.all([
+  const [categories, accountTypes, tags] = await Promise.all([
     prisma.category.findMany({
       where: { workspaceId: workspace.id, parentId: null },
       include: { children: { orderBy: { name: 'asc' } } },
       orderBy: { name: 'asc' },
     }),
     prisma.accountType.findMany({
+      where: { workspaceId: workspace.id },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.tag.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { name: 'asc' },
     }),
@@ -68,6 +73,7 @@ export default async function EditTransactionPage({ params }: EditTransactionPag
               accounts={accounts as any[]}
               accountTypes={accountTypes}
               categories={categories as any[]}
+              tags={tags}
               initialData={transaction as any}
             />
           </div>

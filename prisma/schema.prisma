@@ -163,6 +163,7 @@ model Workspace {
   accountTypes         AccountType[]
   botLinkTokens        BotLinkToken[]
   creditCardInvoices   CreditCardInvoice[]
+  tags                 Tag[]
 
   @@map("workspaces")
 }
@@ -348,6 +349,8 @@ model Transaction {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  tags              Tag[]
+
   workspace         Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   bankAccount       BankAccount       @relation(fields: [bankAccountId], references: [id], onDelete: Cascade)
   category          Category?         @relation(fields: [categoryId], references: [id], onDelete: SetNull)
@@ -509,4 +512,24 @@ model BotSession {
 
   @@unique([platform, chatId])
   @@map("bot_sessions")
+}
+
+// ============================================================
+// Tags
+// ============================================================
+
+model Tag {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String?  @default("#6366f1")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace    Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  transactions Transaction[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+  @@map("tags")
 }

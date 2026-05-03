@@ -8,9 +8,10 @@ import { format } from 'date-fns'
 interface TransactionFilterBarProps {
   accounts: { id: string; name: string }[]
   categories: { id: string; name: string; icon: string | null }[]
+  tags: { id: string; name: string; color: string | null }[]
 }
 
-export default function TransactionFilterBar({ accounts, categories }: TransactionFilterBarProps) {
+export default function TransactionFilterBar({ accounts, categories, tags }: TransactionFilterBarProps) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -20,6 +21,7 @@ export default function TransactionFilterBar({ accounts, categories }: Transacti
   const [endDate, setEndDate] = useState(searchParams.get('endDate') || '')
   const [bankAccountId, setBankAccountId] = useState(searchParams.get('bankAccountId') || '')
   const [categoryId, setCategoryId] = useState(searchParams.get('categoryId') || '')
+  const [tagId, setTagId] = useState(searchParams.get('tagId') || '')
   const [type, setType] = useState(searchParams.get('type') || '')
 
   const updateFilters = (newFilters: Record<string, string>) => {
@@ -45,6 +47,7 @@ export default function TransactionFilterBar({ accounts, categories }: Transacti
     setEndDate('')
     setBankAccountId('')
     setCategoryId('')
+    setTagId('')
     setType('')
     router.push(pathname)
   }
@@ -109,6 +112,23 @@ export default function TransactionFilterBar({ accounts, categories }: Transacti
             <option key={cat.id} value={cat.id}>{cat.icon} {cat.name}</option>
           ))}
         </select>
+
+        {/* Tag */}
+        {tags.length > 0 && (
+          <select
+            value={tagId}
+            onChange={(e) => {
+              setTagId(e.target.value)
+              updateFilters({ tagId: e.target.value })
+            }}
+            className="px-4 py-2 border border-border rounded-xl bg-background text-sm outline-none focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="">Todas as Tags</option>
+            {tags.map(tag => (
+              <option key={tag.id} value={tag.id}>#{tag.name}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-4">
@@ -143,7 +163,7 @@ export default function TransactionFilterBar({ accounts, categories }: Transacti
             />
           </div>
 
-          {(search || type || bankAccountId || categoryId || startDate || endDate) && (
+          {(search || type || bankAccountId || categoryId || tagId || startDate || endDate) && (
             <button
               onClick={clearFilters}
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-destructive transition-colors"
@@ -154,7 +174,7 @@ export default function TransactionFilterBar({ accounts, categories }: Transacti
         </div>
 
         <button
-          onClick={() => updateFilters({ search, type, bankAccountId, categoryId, startDate, endDate })}
+          onClick={() => updateFilters({ search, type, bankAccountId, categoryId, tagId, startDate, endDate })}
           className="px-4 py-2 bg-primary/10 text-primary hover:bg-primary/20 rounded-xl text-sm font-medium transition-colors sm:hidden"
         >
           Aplicar Filtros

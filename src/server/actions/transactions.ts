@@ -41,6 +41,8 @@ const createTransactionSchema = z.object({
 export async function createTransactionAction(formData: FormData) {
   const session = await requireSession()
 
+  const tagIds = formData.getAll('tagIds') as string[]
+
   const raw = {
     workspaceId: formData.get('workspaceId') as string,
     type: formData.get('type') as TransactionType,
@@ -106,6 +108,13 @@ export async function createTransactionAction(formData: FormData) {
     specialType: data.specialType ?? undefined,
   })
 
+  if (tagIds.length > 0) {
+    await prisma.transaction.update({
+      where: { id: transaction.id },
+      data: { tags: { connect: tagIds.map((id) => ({ id })) } },
+    })
+  }
+
   // Se for recorrente, criar a regra e vincular
   if (data.isRecurring) {
     const { createRecurringRule, generateRecurringTransactions } = await import('@/lib/transactions/recurrence')
@@ -151,6 +160,8 @@ export async function updateTransaction(
 
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
+  const tagIds = formData.getAll('tagIds') as string[]
+
   // Captura dados antigos antes de atualizar para refresh correto das faturas
   const oldTx = await prisma.transaction.findUnique({
     where: { id: transactionId, workspaceId },
@@ -173,6 +184,7 @@ export async function updateTransaction(
       categoryId: (formData.get('categoryId') as string) || undefined,
       paymentMethodId: (formData.get('paymentMethodId') as string) || undefined,
       transferToAccountId: (formData.get('transferToAccountId') as string) || null,
+      tags: { set: tagIds.map((id) => ({ id })) },
     },
   })
 
@@ -257,6 +269,7 @@ export async function getTransactions(
     endDate?: Date
     bankAccountId?: string
     categoryId?: string
+    tagId?: string
     type?: TransactionType
     search?: string
     page?: number
@@ -283,6 +296,7 @@ export async function getTransactions(
     ...(filters?.search
       ? { description: { contains: filters.search, mode: 'insensitive' as const } }
       : {}),
+    ...(filters?.tagId ? { tags: { some: { id: filters.tagId } } } : {}),
   }
 
   const [transactions, total] = await Promise.all([
@@ -293,6 +307,7 @@ export async function getTransactions(
         bankAccount: true,
         paymentMethod: true,
         installmentGroup: true,
+        tags: true,
       },
       orderBy: { date: 'desc' },
       skip,

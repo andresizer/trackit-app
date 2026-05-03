@@ -23,13 +23,17 @@ export default async function NewTransactionPage({ params }: NewTransactionPageP
     initialBalance: Number(acc.initialBalance)
   }))
 
-  const [categories, accountTypes] = await Promise.all([
+  const [categories, accountTypes, tags] = await Promise.all([
     prisma.category.findMany({
       where: { workspaceId: workspace.id, parentId: null },
       include: { children: { orderBy: { name: 'asc' } } },
       orderBy: { name: 'asc' },
     }),
     prisma.accountType.findMany({
+      where: { workspaceId: workspace.id },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.tag.findMany({
       where: { workspaceId: workspace.id },
       orderBy: { name: 'asc' },
     }),
@@ -50,6 +54,7 @@ export default async function NewTransactionPage({ params }: NewTransactionPageP
               accounts={accounts as any[]}
               accountTypes={accountTypes}
               categories={categories as any[]}
+              tags={tags}
             />
           </div>
         </div>

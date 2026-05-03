@@ -5,6 +5,7 @@ import { createTransactionAction, updateTransaction } from '@/server/actions/tra
 import CategoryPicker from './CategoryPicker'
 import InlineAccountCreate from './InlineAccountCreate'
 import InlineCategoryCreate from './InlineCategoryCreate'
+import TagPicker from '@/components/tags/TagPicker'
 import { CalendarDays, DollarSign, FileText, CreditCard, Repeat, ArrowRightLeft, Plus } from 'lucide-react'
 
 type AccountType = { id: string; name: string; icon: string | null }
@@ -16,12 +17,14 @@ type Category = {
   color: string | null
   children?: { id: string; name: string; icon: string | null }[]
 }
+type TagOption = { id: string; name: string; color: string | null }
 
 interface TransactionFormProps {
   workspaceId: string
   accounts: Account[]
   accountTypes: AccountType[]
   categories: Category[]
+  tags?: TagOption[]
   initialData?: {
     id: string
     type: 'EXPENSE' | 'INCOME' | 'TRANSFER'
@@ -31,15 +34,17 @@ interface TransactionFormProps {
     bankAccountId: string
     categoryId: string | null
     transferToAccountId: string | null
+    tags?: TagOption[]
   }
   onSuccess?: () => void
 }
 
-export default function TransactionForm({ workspaceId, accounts, accountTypes, categories, initialData, onSuccess }: TransactionFormProps) {
+export default function TransactionForm({ workspaceId, accounts, accountTypes, categories, tags = [], initialData, onSuccess }: TransactionFormProps) {
   const [type, setType] = useState<'EXPENSE' | 'INCOME' | 'TRANSFER'>(initialData?.type || 'EXPENSE')
   const [isInstallment, setIsInstallment] = useState(false)
   const [isRecurring, setIsRecurring] = useState(false)
   const [categoryId, setCategoryId] = useState(initialData?.categoryId || '')
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(initialData?.tags?.map((t) => t.id) ?? [])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -78,6 +83,7 @@ export default function TransactionForm({ workspaceId, accounts, accountTypes, c
         formElement.reset()
         setCategoryId('')
         setSelectedAccountId('')
+        setSelectedTagIds([])
         setIsInstallment(false)
       }
     } catch (error) {
@@ -263,6 +269,18 @@ export default function TransactionForm({ workspaceId, accounts, accountTypes, c
           />
         )}
       </div>
+
+      {/* Tags */}
+      {tags.length > 0 && (
+        <div className="space-y-2">
+          <label className="text-sm font-medium">🏷 Tags</label>
+          <TagPicker
+            tags={tags}
+            selectedIds={selectedTagIds}
+            onChange={setSelectedTagIds}
+          />
+        </div>
+      )}
 
       {/* Parcelamento (Apenas Despesas) */}
       {type === 'EXPENSE' && !initialData && (

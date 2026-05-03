@@ -3,6 +3,7 @@
 import { format, isSameDay, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ArrowDownLeft, ArrowUpRight, ArrowLeftRight, Trash2, Loader2, Filter } from 'lucide-react'
+import TagBadge from '@/components/tags/TagBadge'
 import { useState, useTransition, useMemo } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { deleteTransaction } from '@/server/actions/transactions'
@@ -19,6 +20,7 @@ interface Transaction {
   paymentMethod: { name: string } | null
   installmentNumber: number | null
   installmentGroup: { totalInstallments: number } | null
+  tags?: { id: string; name: string; color: string | null }[]
 }
 
 interface TransactionListProps {
@@ -163,11 +165,11 @@ export default function TransactionList({ transactions, onDelete, workspaceId }:
                           {tx.description ?? 'Sem descrição'}{installmentLabel}
                         </p>
                       </div>
-                      <div className="flex items-center gap-2 mt-0.5">
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                         {tx.category && (
-                          <span 
+                          <span
                             className="text-[10px] px-2 py-0.5 rounded-full font-medium"
-                            style={{ 
+                            style={{
                               backgroundColor: tx.category.color ? `${tx.category.color}15` : undefined,
                               color: tx.category.color || undefined,
                               border: tx.category.color ? `1px solid ${tx.category.color}30` : undefined
@@ -176,6 +178,9 @@ export default function TransactionList({ transactions, onDelete, workspaceId }:
                             {tx.category.icon} {tx.category.name}
                           </span>
                         )}
+                        {tx.tags?.map((tag) => (
+                          <TagBadge key={tag.id} name={tag.name} color={tag.color} />
+                        ))}
                         <span className="text-xs text-muted-foreground">
                           · {tx.bankAccount.icon} {tx.bankAccount.name}
                         </span>
