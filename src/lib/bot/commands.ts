@@ -44,6 +44,17 @@ export async function handleBotMessage(
     return
   }
 
+  if (state === 'AWAITING_CATEGORY') {
+    const normalized = text.trim().toLowerCase()
+    if (['cancelar', 'cancel', 'não', 'nao', 'n', 'no', '❌'].includes(normalized)) {
+      await resetSession(session.id)
+      await sender.sendMessage(chatId, '❌ Cancelado.')
+      return
+    }
+    await sender.sendMessage(chatId, '⏳ Aguardando seleção de categoria. Use os botões acima ou digite *cancelar*.')
+    return
+  }
+
   const intent = parseMessage(text)
 
   switch (intent.type) {
@@ -85,7 +96,7 @@ export async function handleBotMessage(
 }
 
 /**
- * Processa callback de botão inline (ex: seleção de conta).
+ * Processa callback de botão inline (seleção de conta, confirmação, categoria).
  */
 export async function handleCallbackQuery(
   userId: string,
@@ -103,6 +114,45 @@ export async function handleCallbackQuery(
     await transitionState(session.id, 'AWAITING_CONFIRM', { bankAccountId: accountId })
     const updatedContext = { ...context, bankAccountId: accountId }
     await showConfirmationMessage(chatId, updatedContext, sender)
+    return
+  }
+
+  if (callbackData === 'confirm') {
+    await executeConfirmedTransaction(session.id, chatId, workspaceId, context, sender)
+    return
+  }
+
+  if (callbackData === 'cancel') {
+    await resetSession(session.id)
+    await sender.sendMessage(chatId, '❌ Cancelado.')
+    return
+  }
+
+  if (callbackData === 'change_category') {
+    await transitionState(session.id, 'AWAITING_CATEGORY')
+    await showCategorySelection(chatId, workspaceId, context, sender)
+    return
+  }
+
+  if (callbackData === 'show_categories_root') {
+    await showCategorySelection(chatId, workspaceId, context, sender)
+    return
+  }
+
+  if (callbackData.startsWith('cat_parent:')) {
+    const parentId = callbackData.replace('cat_parent:', '')
+    await showCategorySelection(chatId, workspaceId, context, sender, parentId)
+    return
+  }
+
+  if (callbackData.startsWith('cat:')) {
+    const catId = callbackData.replace('cat:', '')
+    const cat = await prisma.category.findUnique({ where: { id: catId }, select: { name: true } })
+    const catName = cat?.name ?? 'Categoria'
+    const updatedContext = { ...context, categoryId: catId, categoryName: catName }
+    await transitionState(session.id, 'AWAITING_CONFIRM', { categoryId: catId, categoryName: catName })
+    await showConfirmationMessage(chatId, updatedContext, sender)
+    return
   }
 }
 
@@ -219,21 +269,102 @@ async function showConfirmationMessage(
       const cat = item.categoryName ? ` _(${item.categoryName})_` : ''
       msg += `${i + 1}. ${emoji} ${item.description} — ${formatCurrency(item.amount)}${cat} • ${dateStr}${recurringLabel}\n`
     })
-    msg += `\n💰 *Total: ${formatCurrency(total)}*\n\nConfirmar? Responda *sim* ou *não*`
-    await sender.sendMessage(chatId, msg)
+    msg += `\n💰 *Total: ${formatCurrency(total)}*`
+
+    if (sender.sendMessageWithButtons) {
+      await sender.sendMessageWithButtons(chatId, msg, [
+        [
+          { text: '✅ Confirmar tudo', callback_data: 'confirm' },
+          { text: '❌ Cancelar', callback_data: 'cancel' },
+        ],
+      ])
+    } else {
+      await sender.sendMessage(chatId, `${msg}\n\nConfirmar? Responda *sim* ou *não*`)
+    }
   } else {
     const emoji = context.type === 'INCOME' ? '💵' : '💸'
     const typeLabel = context.type === 'INCOME' ? 'Receita' : 'Despesa'
     const dateLabel = context.date ? ` • ${formatDate(new Date(context.date))}` : ''
     const recurringLabel = context.isRecurring ? '\n🔄 _Recorrência mensal_' : ''
-    await sender.sendMessage(
-      chatId,
+    const msg =
       `${emoji} *${typeLabel}*\n\n` +
-        `📝 ${context.description}\n` +
-        `💰 ${formatCurrency(context.amount!)}\n` +
-        `🏷️ ${context.categoryName ?? 'Sem categoria'}${dateLabel}${recurringLabel}\n\n` +
-        `Confirmar? Responda *sim* ou *não*`
-    )
+      `📝 ${context.description}\n` +
+      `💰 ${formatCurrency(context.amount!)}\n` +
+      `🏷️ ${context.categoryName ?? 'Sem categoria'}${dateLabel}${recurringLabel}`
+
+    if (sender.sendMessageWithButtons) {
+      await sender.sendMessageWithButtons(chatId, msg, [
+        [
+          { text: '✅ Confirmar', callback_data: 'confirm' },
+          { text: '❌ Cancelar', callback_data: 'cancel' },
+        ],
+        [
+          { text: '🏷️ Mudar categoria', callback_data: 'change_category' },
+        ],
+      ])
+    } else {
+      await sender.sendMessage(chatId, `${msg}\n\nConfirmar? Responda *sim* ou *não*`)
+    }
+  }
+}
+
+async function showCategorySelection(
+  chatId: string,
+  workspaceId: string,
+  context: BotContext,
+  sender: BotSender,
+  parentId?: string
+) {
+  const categories = await prisma.category.findMany({
+    where: { workspaceId, parentId: parentId ?? null, isHidden: false },
+    orderBy: { name: 'asc' },
+    include: { _count: { select: { children: true } } },
+  })
+
+  if (categories.length === 0) {
+    await sender.sendMessage(chatId, '❌ Nenhuma categoria encontrada.')
+    return
+  }
+
+  let header: string
+  if (parentId) {
+    const parent = await prisma.category.findUnique({
+      where: { id: parentId },
+      select: { name: true },
+    })
+    header = `${parent?.name ?? 'Categoria'} > subcategoria?`
+  } else {
+    const txSummary =
+      context.description && context.amount
+        ? `📝 ${context.description} — ${formatCurrency(context.amount)}\n`
+        : ''
+    header = `${txSummary}Qual categoria?`
+  }
+
+  // Buttons in rows of 2 (up to 8 categories)
+  const catButtons: { text: string; callback_data: string }[][] = []
+  for (let i = 0; i < Math.min(categories.length, 8); i += 2) {
+    const row = [categories[i], categories[i + 1]]
+      .filter(Boolean)
+      .map((cat) => ({
+        text: cat.icon ? `${cat.icon} ${cat.name}` : cat.name,
+        callback_data: cat._count.children > 0 ? `cat_parent:${cat.id}` : `cat:${cat.id}`,
+      }))
+    catButtons.push(row)
+  }
+
+  const navRow: { text: string; callback_data: string }[] = []
+  if (parentId) {
+    navRow.push({ text: '← Voltar', callback_data: 'show_categories_root' })
+  }
+  navRow.push({ text: '❌ Cancelar', callback_data: 'cancel' })
+  catButtons.push(navRow)
+
+  if (sender.sendMessageWithButtons) {
+    await sender.sendMessageWithButtons(chatId, header, catButtons)
+  } else {
+    const list = categories.map((c, i) => `${i + 1}. ${c.name}`).join('\n')
+    await sender.sendMessage(chatId, `${header}\n\n${list}`)
   }
 }
 
@@ -250,7 +381,7 @@ async function handleConfirmation(
   const isDeny = ['não', 'nao', 'n', 'no', 'cancelar', '❌'].includes(normalized)
 
   if (!isConfirm && !isDeny) {
-    await sender.sendMessage(chatId, 'Responda *sim* ou *não*.')
+    await sender.sendMessage(chatId, 'Use os botões acima ou responda *sim* / *não*.')
     return
   }
 
@@ -260,6 +391,16 @@ async function handleConfirmation(
     return
   }
 
+  await executeConfirmedTransaction(sessionId, chatId, workspaceId, context, sender)
+}
+
+async function executeConfirmedTransaction(
+  sessionId: string,
+  chatId: string,
+  workspaceId: string,
+  context: BotContext,
+  sender: BotSender
+) {
   if (!context.bankAccountId) {
     await sender.sendMessage(chatId, '❌ Nenhuma conta selecionada.')
     await resetSession(sessionId)
