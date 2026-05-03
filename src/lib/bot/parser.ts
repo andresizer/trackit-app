@@ -113,10 +113,8 @@ function parseSingleLine(line: string): { description: string; amount: number; d
     }
   }
 
-  const normalized = withoutDate.toLowerCase()
-
-  // Padrão: "descrição valor" (ex: "ifood 42,50")
-  const fwdMatch = normalized.match(/^(.+?)\s+([\d]+[.,]?\d*)\s*$/)
+  // Padrão: "descrição valor" (ex: "iFood 42,50")
+  const fwdMatch = withoutDate.match(/^(.+?)\s+([\d]+[.,]?\d*)\s*$/)
   if (fwdMatch) {
     const amount = parseFloat(fwdMatch[2].replace(',', '.'))
     if (!isNaN(amount) && amount > 0) {
@@ -124,8 +122,8 @@ function parseSingleLine(line: string): { description: string; amount: number; d
     }
   }
 
-  // Padrão: "valor descrição" (ex: "42,50 ifood")
-  const revMatch = normalized.match(/^([\d]+[.,]?\d*)\s+(.+?)$/)
+  // Padrão: "valor descrição" (ex: "42,50 iFood")
+  const revMatch = withoutDate.match(/^([\d]+[.,]?\d*)\s+(.+?)$/)
   if (revMatch) {
     const amount = parseFloat(revMatch[1].replace(',', '.'))
     if (!isNaN(amount) && amount > 0) {
