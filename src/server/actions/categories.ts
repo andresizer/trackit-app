@@ -84,7 +84,7 @@ export async function updateCategory(formData: FormData) {
   const { id, workspaceId, ...updateData } = data
 
   await prisma.category.update({
-    where: { id },
+    where: { id, workspaceId: data.workspaceId },
     data: updateData,
   })
 
@@ -98,18 +98,18 @@ export async function deleteCategory(categoryId: string, workspaceId: string) {
 
   // Mover subcategorias para "sem pai"
   await prisma.category.updateMany({
-    where: { parentId: categoryId },
+    where: { parentId: categoryId, workspaceId },
     data: { parentId: null },
   })
 
   // Remover categoria das transações
   await prisma.transaction.updateMany({
-    where: { categoryId },
+    where: { categoryId, workspaceId },
     data: { categoryId: null },
   })
 
   await prisma.category.delete({
-    where: { id: categoryId },
+    where: { id: categoryId, workspaceId },
   })
 
   revalidatePath(`/[workspaceSlug]/categories`, 'page')

@@ -228,7 +228,7 @@ export async function updateAccount(formData: FormData) {
   const { id, workspaceId, ...updateData } = data
 
   await prisma.bankAccount.update({
-    where: { id },
+    where: { id, workspaceId: data.workspaceId },
     data: updateData,
   })
 
@@ -241,7 +241,7 @@ export async function archiveAccount(accountId: string, workspaceId: string) {
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
   await prisma.bankAccount.update({
-    where: { id: accountId },
+    where: { id: accountId, workspaceId },
     data: { isArchived: true },
   })
 
@@ -258,7 +258,7 @@ export async function deleteAccount(accountId: string, workspaceId: string) {
   // Mas aqui vamos permitir a exclusão direta se o usuário confirmar na UI.
   
   await prisma.bankAccount.delete({
-    where: { id: accountId },
+    where: { id: accountId, workspaceId },
   })
 
   revalidatePath(`/[workspaceSlug]/accounts`, 'page')

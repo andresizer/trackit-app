@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import { z } from "zod"
+import { getServerSession } from "next-auth"
+import { prisma } from "@/lib/db/prisma"
 import { detectAnomalies } from "@/lib/ai/anomaly"
 
 const schema = z.object({
@@ -15,6 +17,19 @@ export async function GET(req: NextRequest) {
         }
 
         const data = schema.parse(raw)
+
+        const session = await getServerSession()
+        if (!session?.user?.id) {
+            return NextResponse.json({ error: "Não autenticado" }, { status: 401 })
+        }
+
+        const workspace = await prisma.workspace.findUnique({
+            where: { id: data.workspaceId },
+            include: { members: { where: { userId: session.user.id } } },
+        })
+        if (!workspace || workspace.members.length === 0) {
+            return NextResponse.json({ error: "Acesso negado ao workspace" }, { status: 403 })
+        }
 
         const result = await detectAnomalies(data.workspaceId)
 

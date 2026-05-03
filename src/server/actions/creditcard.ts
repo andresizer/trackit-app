@@ -17,7 +17,7 @@ export async function payInvoiceAction(
 
   // Load invoice + credit card
   const invoice = await prisma.creditCardInvoice.findUnique({
-    where: { id: invoiceId },
+    where: { id: invoiceId, workspaceId },
     include: { creditCard: true },
   })
 
@@ -33,7 +33,7 @@ export async function payInvoiceAction(
   // Refresh total in case new transactions were added
   await refreshInvoiceTotal(invoiceId)
   const updated = await prisma.creditCardInvoice.findUnique({
-    where: { id: invoiceId },
+    where: { id: invoiceId, workspaceId },
   })
 
   if (!updated) {
@@ -188,7 +188,7 @@ export async function deleteInvoiceAction(invoiceId: string, workspaceId: string
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
   const invoice = await prisma.creditCardInvoice.findUnique({
-    where: { id: invoiceId },
+    where: { id: invoiceId, workspaceId },
   })
 
   if (!invoice) {
@@ -196,7 +196,7 @@ export async function deleteInvoiceAction(invoiceId: string, workspaceId: string
   }
 
   await prisma.creditCardInvoice.delete({
-    where: { id: invoiceId },
+    where: { id: invoiceId, workspaceId },
   })
 
   revalidatePath(`/[workspaceSlug]/credit-cards`, 'layout')
@@ -210,7 +210,7 @@ export async function toggleInvoicePaidAction(invoiceId: string, workspaceId: st
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
   const invoice = await prisma.creditCardInvoice.findUnique({
-    where: { id: invoiceId },
+    where: { id: invoiceId, workspaceId },
   })
 
   if (!invoice) {
@@ -219,7 +219,7 @@ export async function toggleInvoicePaidAction(invoiceId: string, workspaceId: st
 
   const newIsPaid = !invoice.isPaid
   await prisma.creditCardInvoice.update({
-    where: { id: invoiceId },
+    where: { id: invoiceId, workspaceId },
     data: { isPaid: newIsPaid },
   })
 
@@ -238,7 +238,7 @@ export async function updateInvoiceDueDateAction(
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
   const invoice = await prisma.creditCardInvoice.findUnique({
-    where: { id: invoiceId },
+    where: { id: invoiceId, workspaceId },
   })
 
   if (!invoice) {
@@ -250,7 +250,7 @@ export async function updateInvoiceDueDateAction(
   }
 
   await prisma.creditCardInvoice.update({
-    where: { id: invoiceId },
+    where: { id: invoiceId, workspaceId },
     data: { dueDate: newDueDate },
   })
 
@@ -270,7 +270,7 @@ export async function moveTransactionToInvoiceAction(
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
   const tx = await prisma.transaction.findUnique({
-    where: { id: transactionId },
+    where: { id: transactionId, workspaceId },
     select: { bankAccountId: true, date: true, creditCardInvoiceId: true },
   })
 
@@ -279,7 +279,7 @@ export async function moveTransactionToInvoiceAction(
   }
 
   await prisma.transaction.update({
-    where: { id: transactionId },
+    where: { id: transactionId, workspaceId },
     data: { creditCardInvoiceId: targetInvoiceId },
   })
 

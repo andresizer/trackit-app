@@ -153,7 +153,7 @@ export async function updateTransaction(
 
   // Captura dados antigos antes de atualizar para refresh correto das faturas
   const oldTx = await prisma.transaction.findUnique({
-    where: { id: transactionId },
+    where: { id: transactionId, workspaceId },
     select: { bankAccountId: true, date: true },
   })
 
@@ -163,7 +163,7 @@ export async function updateTransaction(
     : oldTx?.date
 
   await prisma.transaction.update({
-    where: { id: transactionId },
+    where: { id: transactionId, workspaceId },
     data: {
       type: (formData.get('type') as TransactionType) || undefined,
       amount: formData.get('amount') ? Number(formData.get('amount')) : undefined,
@@ -202,7 +202,7 @@ export async function deleteTransaction(
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
   const tx = await prisma.transaction.findUnique({
-    where: { id: transactionId },
+    where: { id: transactionId, workspaceId },
     select: { installmentGroupId: true, recurringRuleId: true, bankAccountId: true, date: true },
   })
 
@@ -225,7 +225,7 @@ export async function deleteTransaction(
     }
 
     await prisma.transaction.deleteMany({
-      where: { installmentGroupId: tx.installmentGroupId },
+      where: { installmentGroupId: tx.installmentGroupId, workspaceId },
     })
     await prisma.installmentGroup.delete({
       where: { id: tx.installmentGroupId },
@@ -234,7 +234,7 @@ export async function deleteTransaction(
     if (tx) affectedPairs.push({ bankAccountId: tx.bankAccountId, date: tx.date })
 
     await prisma.transaction.delete({
-      where: { id: transactionId },
+      where: { id: transactionId, workspaceId },
     })
   }
 

@@ -75,7 +75,7 @@ export async function updateBudget(
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
   await prisma.budget.update({
-    where: { id },
+    where: { id, workspaceId },
     data: { monthlyLimit, alertPercent },
   })
 
@@ -87,7 +87,7 @@ export async function deleteBudget(id: string, workspaceId: string) {
   const session = await requireSession()
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
-  await prisma.budget.delete({ where: { id } })
+  await prisma.budget.delete({ where: { id, workspaceId } })
 
   revalidatePath('/[workspaceSlug]/budget', 'page')
   return { success: true }

@@ -22,12 +22,12 @@ export async function deleteRecurrenceAction(workspaceId: string, ruleId: string
 
   // Desvincular transações (ou deletar, mas por segurança apenas desvinculamos o ruleId)
   await prisma.transaction.updateMany({
-    where: { recurringRuleId: ruleId },
+    where: { recurringRuleId: ruleId, workspaceId },
     data: { recurringRuleId: null },
   })
 
   await prisma.recurringRule.delete({
-    where: { id: ruleId },
+    where: { id: ruleId, workspaceId },
   })
 
   revalidatePath(`/[workspaceSlug]/recurring`, 'page')
@@ -46,7 +46,7 @@ export async function updateRecurrenceAction(
   await requireWorkspaceRole(session.user.id, workspaceId, 'EDITOR')
 
   await prisma.recurringRule.update({
-    where: { id: ruleId },
+    where: { id: ruleId, workspaceId },
     data: {
       amount: data.amount,
       description: data.description,
