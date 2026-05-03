@@ -118,7 +118,9 @@ export async function handleCallbackQuery(
   }
 
   if (callbackData === 'confirm') {
-    await executeConfirmedTransaction(session.id, chatId, workspaceId, context, sender)
+    const freshSession = await prisma.botSession.findUniqueOrThrow({ where: { id: session.id } })
+    const freshContext = getSessionContext(freshSession)
+    await executeConfirmedTransaction(session.id, chatId, workspaceId, freshContext, sender)
     return
   }
 
